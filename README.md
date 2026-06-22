@@ -13,12 +13,13 @@ It's generated from the [groundcover Terraform provider](https://github.com/grou
 with [upjet](https://github.com/crossplane/upjet), so it talks to the exact same API and
 reuses the same drift handling — you just drive it the GitOps/Crossplane way.
 
-> **Already on the groundcover Terraform provider?** Your `monitor_yaml` carries over
-> verbatim. See [Coming from Terraform](#coming-from-terraform).
+> **Already using the groundcover Terraform provider?** The YAML from your
+> `groundcover_monitor.monitor_yaml` works unchanged as `monitorYaml` here — no rewriting.
+> See [Coming from Terraform](#coming-from-terraform) for the full mapping.
 
 ## Prerequisites
 
-- A Kubernetes cluster with **Crossplane installed** ([install guide](https://docs.crossplane.io/latest/software/install/)).
+- A Kubernetes cluster with **Crossplane installed** ([install guide](https://docs.crossplane.io/latest/get-started/install/)).
 - A groundcover **API key** and **backend id** (Settings → API Keys in the groundcover app).
 
 ## Quick start
