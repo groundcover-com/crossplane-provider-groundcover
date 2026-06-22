@@ -1,0 +1,20 @@
+# groundcover credentials for the provider.
+#
+# First create the credentials Secret (api_url is optional; defaults to
+# https://api.groundcover.com — set it only if your tenant uses a different API host):
+#
+#   kubectl create secret generic groundcover-creds -n crossplane-system \
+#     --from-literal=credentials='{"api_key":"<API_KEY>","backend_id":"<BACKEND_ID>"}'
+#
+# Then apply this ProviderConfig:
+apiVersion: groundcover.com/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: groundcover-creds
+      key: credentials

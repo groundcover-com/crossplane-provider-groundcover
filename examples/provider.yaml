@@ -1,0 +1,11 @@
+# Installs the groundcover Crossplane provider and registers its CRDs
+# (Monitor, Dashboard, ConnectedAppJson).
+#
+# NOTE: the package image is not published yet (POC, BE-2207). Until release, build from
+# source — see DEVELOPING.md.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-groundcover
+spec:
+  package: ghcr.io/groundcover-com/crossplane-provider-groundcover:v0.1.0

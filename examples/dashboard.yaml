@@ -1,0 +1,14 @@
+# A groundcover dashboard. Run `kubectl explain dashboard.spec.forProvider` for the full
+# schema; `preset` holds the dashboard definition (JSON).
+apiVersion: dashboards.groundcover.com/v1alpha1
+kind: Dashboard
+metadata:
+  name: my-dashboard
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: My Dashboard
+    team: platform
+    # preset: |
+    #   { ... dashboard JSON ... }

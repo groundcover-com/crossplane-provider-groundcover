@@ -1,0 +1,31 @@
+# A groundcover monitor. spec.forProvider.monitorYaml is the same YAML you'd put in
+# groundcover_monitor.monitor_yaml in Terraform.
+apiVersion: monitoring.groundcover.com/v1alpha1
+kind: Monitor
+metadata:
+  name: pod-crash-looping
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    monitorYaml: |
+      title: K8s Pod Crash Looping
+      display:
+        header: K8s Pod Crash Looping
+      severity: S2
+      measurementType: state
+      model:
+        queries:
+        - name: q1
+          dataType: metrics
+          pipeline:
+            metric: groundcover_kube_pod_container_status_waiting_reason
+        thresholds:
+        - name: t1
+          inputName: q1
+          operator: gt
+          values:
+          - 0
+      evaluationInterval:
+        interval: 1m
+        pendingFor: 5m

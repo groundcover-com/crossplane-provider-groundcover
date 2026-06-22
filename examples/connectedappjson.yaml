@@ -1,0 +1,21 @@
+# A connected app. Its `data` is sensitive, so it's supplied via a Secret reference rather
+# than inline. Create the data Secret first (the JSON object matches the app `type`):
+#
+#   kubectl create secret generic slack-app-data -n crossplane-system \
+#     --from-literal=data='{"url":"https://hooks.slack.com/services/XXX/YYY/ZZZ"}'
+#
+apiVersion: integrations.groundcover.com/v1alpha1
+kind: ConnectedAppJson
+metadata:
+  name: alerts-slack
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: alerts-slack
+    # one of: slack-webhook, pagerduty, opsgenie, incidentio, webhook, rootly, ms-teams
+    type: slack-webhook
+    dataSecretRef:
+      namespace: crossplane-system
+      name: slack-app-data
+      key: data
