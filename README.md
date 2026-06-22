@@ -1,5 +1,9 @@
 # provider-groundcover
 
+> ⚠️ **PRIVATE / INTERNAL — do not make this repository public.** POC under BE-2207.
+> No release/publish automation is configured on purpose. Flip to public only on an
+> explicit go-public decision.
+
 A [Crossplane](https://crossplane.io) provider for [groundcover](https://groundcover.com),
 generated from the [groundcover Terraform provider](https://github.com/groundcover-com/terraform-provider-groundcover)
 with [upjet](https://github.com/crossplane/upjet).
