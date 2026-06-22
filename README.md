@@ -1,57 +1,165 @@
-# provider-groundcover
+# crossplane-provider-groundcover
 
 > ⚠️ **PRIVATE / INTERNAL — do not make this repository public.** POC under BE-2207.
-> No release/publish automation is configured on purpose. Flip to public only on an
-> explicit go-public decision.
+> No release/publish automation is configured yet. Flip to public only on an explicit
+> go-public decision.
 
-A [Crossplane](https://crossplane.io) provider for [groundcover](https://groundcover.com),
-generated from the [groundcover Terraform provider](https://github.com/groundcover-com/terraform-provider-groundcover)
-with [upjet](https://github.com/crossplane/upjet).
+Manage your [groundcover](https://groundcover.com) resources — **monitors, dashboards, and
+connected apps** — directly from Kubernetes with [Crossplane](https://crossplane.io),
+instead of Terraform. You write Kubernetes manifests (`kind: Monitor`, etc.); Crossplane
+continuously reconciles them against the groundcover API.
 
-This is the **only** thing groundcover-on-Crossplane users need — install this provider and
-manage groundcover resources as native Kubernetes CRDs (`Monitor`, `Dashboard`,
-`ConnectedAppJson`). It is a separate repo from the Terraform provider on purpose (it
-*consumes* the published TF provider); the two are not mixed. Mirrors the
-`upbound/provider-datadog` model.
+It's generated from the [groundcover Terraform provider](https://github.com/groundcover-com/terraform-provider-groundcover)
+with [upjet](https://github.com/crossplane/upjet), so it talks to the exact same API and
+reuses the same drift handling — you just drive it the GitOps/Crossplane way.
 
-## Why no custom drift logic
+> **Already on the groundcover Terraform provider?** Your `monitor_yaml` carries over
+> verbatim. See [Coming from Terraform](#coming-from-terraform).
 
-upjet runs the groundcover provider's own `Read` at reconcile time, so the provider's
-existing drift suppression (YAML normalization for monitors/dashboards, `data_hash` for
-connected apps) is reused as-is. No decorator, no re-implementation. The only requirement
-is that this provider is built against a TF-provider version that contains those fixes
-(see the pin below).
+---
 
-## Resources
+## Prerequisites
 
-| CRD | Terraform resource | Notes |
-|-----|--------------------|-------|
-| `Monitor` | `groundcover_monitor` | YAML string body |
-| `Dashboard` | `groundcover_dashboard` | YAML string body |
-| `ConnectedAppJson` | `groundcover_connected_app_json` | `data` as a JSON string (the dynamic `groundcover_connected_app` is not codegen-able by upjet) |
+- A Kubernetes cluster with **Crossplane installed** ([install guide](https://docs.crossplane.io/latest/software/install/)).
+- A groundcover **API key** and **backend id** (Settings → API Keys in the groundcover app).
 
-## Build / regenerate
+## 1. Install the provider
 
-```bash
-make schema      # produce config/schema.json from the published groundcover provider
-make generate    # upjet pipeline + controller-gen (deepcopy) + angryjet (managed methodsets)
-make build
+```yaml
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-groundcover
+spec:
+  package: ghcr.io/groundcover-com/crossplane-provider-groundcover:v0.1.0  # ⚠️ image not published yet — see Status
 ```
 
-`make generate` requires a schema that includes `groundcover_connected_app_json`, i.e. a
-TF-provider release that ships it. Until that release exists, point `make schema` at a
-local build, or drop a `config/schema.json` generated from the local provider.
+```bash
+kubectl apply -f provider.yaml
+kubectl wait provider/provider-groundcover --for=condition=Healthy --timeout=2m
+```
 
-## Versioning / the one pin that matters
+Installing the provider registers the groundcover CRDs: `Monitor`, `Dashboard`, `ConnectedAppJson`.
 
-This provider embeds the TF provider it's generated from. Pin it to a version that has:
-`data_hash` + duration normalization + `groundcover_connected_app_json`. Build against an
-older version and it ships the same drift it was meant to fix.
+## 2. Configure credentials
 
-- Dev: `go.mod` has `replace github.com/groundcover-com/terraform-provider-groundcover => ../terraform-provider-groundcover` for local co-development.
-- Release: drop the `replace`, require the published version.
+Put your groundcover credentials in a `Secret` as a JSON object, then point a
+`ProviderConfig` at it. `api_url` defaults to `https://api.groundcover.com` — set it only
+if your tenant uses a different API host.
+
+```bash
+kubectl create secret generic groundcover-creds -n crossplane-system \
+  --from-literal=credentials='{"api_key":"<YOUR_API_KEY>","backend_id":"<YOUR_BACKEND_ID>"}'
+```
+
+```yaml
+apiVersion: groundcover.com/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: groundcover-creds
+      key: credentials
+```
+
+## 3. Create a monitor
+
+```yaml
+apiVersion: monitoring.groundcover.com/v1alpha1
+kind: Monitor
+metadata:
+  name: pod-crash-looping
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    # Same YAML you'd put in groundcover_monitor.monitor_yaml in Terraform.
+    monitorYaml: |
+      title: K8s Pod Crash Looping
+      display:
+        header: K8s Pod Crash Looping
+      severity: S2
+      measurementType: state
+      model:
+        queries:
+        - name: q1
+          dataType: metrics
+          pipeline:
+            metric: groundcover_kube_pod_container_status_waiting_reason
+        thresholds:
+        - name: t1
+          inputName: q1
+          operator: gt
+          values:
+          - 0
+      evaluationInterval:
+        interval: 1m
+        pendingFor: 5m
+```
+
+```bash
+kubectl apply -f monitor.yaml
+kubectl get monitor pod-crash-looping       # SYNCED=True, READY=True once created
+```
+
+Edit the manifest and re-apply to update; `kubectl delete` removes it from groundcover.
+
+## 4. Other resources
+
+**Dashboard** (`dashboards.groundcover.com/v1alpha1`) — `spec.forProvider` fields: `name`,
+`preset` (the dashboard JSON), `team`, `description`, `override`. Run
+`kubectl explain dashboard.spec.forProvider` for the full schema.
+
+**ConnectedAppJson** (`integrations.groundcover.com/v1alpha1`) — the connected-app `data`
+is sensitive, so it's supplied via a Secret reference, not inline:
+
+```bash
+kubectl create secret generic slack-app-data -n crossplane-system \
+  --from-literal=data='{"url":"https://hooks.slack.com/services/XXX/YYY/ZZZ"}'
+```
+
+```yaml
+apiVersion: integrations.groundcover.com/v1alpha1
+kind: ConnectedAppJson
+metadata:
+  name: alerts-slack
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: alerts-slack
+    type: slack-webhook            # slack-webhook, pagerduty, opsgenie, incidentio, webhook, rootly, ms-teams
+    dataSecretRef:
+      namespace: crossplane-system
+      name: slack-app-data
+      key: data                    # JSON object matching the app type
+```
+
+## Coming from Terraform
+
+| groundcover Terraform | This provider (Crossplane) |
+|---|---|
+| `groundcover_monitor` (`monitor_yaml`) | `kind: Monitor` (`spec.forProvider.monitorYaml`) |
+| `groundcover_dashboard` | `kind: Dashboard` |
+| `groundcover_connected_app` (`data = { ... }`) | `kind: ConnectedAppJson` (`data` as JSON, via `dataSecretRef`) |
+| `provider "groundcover" { api_key, backend_id }` | `ProviderConfig` + a credentials `Secret` |
+
+The connected-app `data` is a JSON string here (Crossplane/upjet can't represent the
+dynamic-object form `groundcover_connected_app` uses in Terraform). Everything else is the
+same shape.
+
+## How drift is handled
+
+There's no custom drift logic in this repo. upjet runs the groundcover provider's own
+`Read` on every reconcile, so the existing suppression (monitor/dashboard YAML
+normalization, connected-app `data_hash`) applies unchanged — no perpetual diffs.
 
 ## Status
 
-POC scaffolding from BE-2207. Generated tree (`apis/<group>`, `internal/controller/<group>`)
-is gitignored and reproduced by `make generate`; releases ship the built provider image.
+POC (BE-2207). The provider package is **not published yet**, so the install image above is
+a placeholder. Until release, build from source — see [DEVELOPING.md](./DEVELOPING.md) for
+`make schema` / `make generate` / `make build` and the TF-provider version pin.
