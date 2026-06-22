@@ -14,7 +14,7 @@ import (
 
 	"github.com/crossplane/upjet/pkg/pipeline"
 
-	"github.com/groundcover-com/provider-groundcover/config"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config"
 )
 
 func main() {

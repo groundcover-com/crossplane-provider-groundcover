@@ -1,4 +1,4 @@
-module github.com/groundcover-com/provider-groundcover
+module github.com/groundcover-com/crossplane-provider-groundcover
 
 go 1.25.9
 

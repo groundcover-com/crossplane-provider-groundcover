@@ -31,12 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/groundcover-com/provider-groundcover/apis"
-	"github.com/groundcover-com/provider-groundcover/apis/v1alpha1"
-	"github.com/groundcover-com/provider-groundcover/config"
-	"github.com/groundcover-com/provider-groundcover/internal/clients"
-	"github.com/groundcover-com/provider-groundcover/internal/controller"
-	"github.com/groundcover-com/provider-groundcover/internal/features"
+	"github.com/groundcover-com/crossplane-provider-groundcover/apis"
+	"github.com/groundcover-com/crossplane-provider-groundcover/apis/v1alpha1"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config"
+	"github.com/groundcover-com/crossplane-provider-groundcover/internal/clients"
+	"github.com/groundcover-com/crossplane-provider-groundcover/internal/controller"
+	"github.com/groundcover-com/crossplane-provider-groundcover/internal/features"
 )
 
 func main() {

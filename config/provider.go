@@ -5,9 +5,9 @@ import (
 
 	"github.com/groundcover-com/terraform-provider-groundcover/pkg/tfprovider"
 
-	"github.com/groundcover-com/provider-groundcover/config/connectedapp"
-	"github.com/groundcover-com/provider-groundcover/config/dashboard"
-	"github.com/groundcover-com/provider-groundcover/config/monitor"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/connectedapp"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/dashboard"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/monitor"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 	resourcePrefix = "groundcover"
 	// modulePath is this Crossplane provider module's import path; upjet uses it to
 	// generate import statements in the generated API and controller code.
-	modulePath = "github.com/groundcover-com/provider-groundcover"
+	modulePath = "github.com/groundcover-com/crossplane-provider-groundcover"
 	// rootGroup is the API group suffix for all generated CRDs.
 	rootGroup = "groundcover.com"
 )

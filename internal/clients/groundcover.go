@@ -17,7 +17,7 @@ import (
 
 	"github.com/groundcover-com/terraform-provider-groundcover/pkg/tfprovider"
 
-	"github.com/groundcover-com/provider-groundcover/apis/v1beta1"
+	"github.com/groundcover-com/crossplane-provider-groundcover/apis/v1beta1"
 )
 
 const (
