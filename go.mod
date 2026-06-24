@@ -7,7 +7,7 @@ require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/crossplane/crossplane-runtime v1.20.0-rc.0.0.20250509113121-26da25aff65f
 	github.com/crossplane/upjet v1.11.0
-	github.com/groundcover-com/terraform-provider-groundcover v0.0.0-00010101000000-000000000000
+	github.com/groundcover-com/terraform-provider-groundcover v1.16.1
 	github.com/pkg/errors v0.9.1
 	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.3
@@ -148,7 +148,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-// The Crossplane provider lives in this repo and reuses the Terraform provider's
-// drift-normalization logic (pkg/normalize) as the single source of truth.
-replace github.com/groundcover-com/terraform-provider-groundcover => ../terraform-provider-groundcover

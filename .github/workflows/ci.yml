@@ -8,80 +8,48 @@ on:
 
 # The generated tree (apis/, internal/controller/) is not committed — every job runs
 # `make generate` first. Generation embeds config/schema.json (committed) and compiles
-# against the Terraform provider, which go.mod pulls in via a `replace` to a sibling
-# checkout. CI_REPO_TOKEN must have read access to terraform-provider-groundcover (it's a
-# separate private repo, so the default GITHUB_TOKEN can't reach it). Once the crossplane
-# go.mod requires a published terraform-provider version instead of the local replace, drop
-# the sibling checkout and let `go mod download` fetch it (set GOPRIVATE + the token).
+# against the Terraform provider, which go.mod pulls from the public module proxy
+# (github.com/groundcover-com/terraform-provider-groundcover) — no checkout, no token.
 jobs:
   generate-build-test:
     name: Generate / Vet / Build / Test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout crossplane provider
-        uses: actions/checkout@v4
-        with:
-          path: crossplane-provider-groundcover
-
-      - name: Checkout terraform provider (for the go.mod replace)
-        uses: actions/checkout@v4
-        with:
-          repository: groundcover-com/terraform-provider-groundcover
-          ref: main
-          path: terraform-provider-groundcover
-          token: ${{ secrets.CI_REPO_TOKEN }}
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: crossplane-provider-groundcover/go.mod
-          cache-dependency-path: crossplane-provider-groundcover/go.sum
+          go-version-file: go.mod
 
       - name: Generate (CRDs + controllers)
-        working-directory: crossplane-provider-groundcover
         run: make generate
 
       - name: Go vet
-        working-directory: crossplane-provider-groundcover
         run: go vet ./...
 
       - name: Build
-        working-directory: crossplane-provider-groundcover
         run: go build ./...
 
       - name: Unit tests
-        working-directory: crossplane-provider-groundcover
         run: go test ./...
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout crossplane provider
-        uses: actions/checkout@v4
-        with:
-          path: crossplane-provider-groundcover
-
-      - name: Checkout terraform provider (for the go.mod replace)
-        uses: actions/checkout@v4
-        with:
-          repository: groundcover-com/terraform-provider-groundcover
-          ref: main
-          path: terraform-provider-groundcover
-          token: ${{ secrets.CI_REPO_TOKEN }}
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: crossplane-provider-groundcover/go.mod
+          go-version-file: go.mod
           cache: false
 
       - name: Generate (lint needs the generated packages present)
-        working-directory: crossplane-provider-groundcover
         run: make generate
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.9
-          working-directory: crossplane-provider-groundcover

@@ -7,7 +7,6 @@ name: E2E
 #
 # Requires a `testing` environment with these secrets (same as the Terraform provider repo):
 #   GROUNDCOVER_API_KEY, GROUNDCOVER_API_URL, GROUNDCOVER_BACKEND_ID
-# and CI_REPO_TOKEN (read access to terraform-provider-groundcover, for the go.mod replace).
 on:
   workflow_dispatch:
   pull_request:
@@ -19,24 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: testing
     steps:
-      - name: Checkout crossplane provider
-        uses: actions/checkout@v4
-        with:
-          path: crossplane-provider-groundcover
-
-      - name: Checkout terraform provider (for the go.mod replace)
-        uses: actions/checkout@v4
-        with:
-          repository: groundcover-com/terraform-provider-groundcover
-          ref: main
-          path: terraform-provider-groundcover
-          token: ${{ secrets.CI_REPO_TOKEN }}
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: crossplane-provider-groundcover/go.mod
-          cache-dependency-path: crossplane-provider-groundcover/go.sum
+          go-version-file: go.mod
 
       - name: Create kind cluster
         uses: helm/kind-action@v1
@@ -44,19 +31,16 @@ jobs:
           cluster_name: gc-crossplane-e2e
 
       - name: Generate + build
-        working-directory: crossplane-provider-groundcover
         run: |
           make crds
           go build -o _output/provider ./cmd/provider
 
       - name: Install CRDs
-        working-directory: crossplane-provider-groundcover
         run: |
           kubectl apply -f package/crds
           kubectl create namespace crossplane-system --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Credentials + ProviderConfig
-        working-directory: crossplane-provider-groundcover
         env:
           GROUNDCOVER_API_KEY: ${{ secrets.GROUNDCOVER_API_KEY }}
           GROUNDCOVER_API_URL: ${{ secrets.GROUNDCOVER_API_URL }}
@@ -68,7 +52,6 @@ jobs:
           kubectl apply -f examples/providerconfig.yaml
 
       - name: Run provider (out-of-cluster, background)
-        working-directory: crossplane-provider-groundcover
         run: |
           ./_output/provider -d > provider.log 2>&1 &
           echo "PROVIDER_PID=$!" >> "$GITHUB_ENV"
@@ -76,7 +59,6 @@ jobs:
           grep -q "Starting workers" provider.log || { echo "provider failed to start"; cat provider.log; exit 1; }
 
       - name: Reconcile ConnectedAppJson + NotificationRoute
-        working-directory: crossplane-provider-groundcover
         run: |
           set -euo pipefail
           RUN="${GITHUB_RUN_ID}"
@@ -132,7 +114,6 @@ jobs:
 
       - name: Provider logs
         if: always()
-        working-directory: crossplane-provider-groundcover
         run: tail -n 100 provider.log || true
 
       - name: Cleanup (delete from backend)

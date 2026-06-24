@@ -14,22 +14,25 @@ make generate    # upjet pipeline + controller-gen (deepcopy) + angryjet (manage
 make build
 ```
 
-`make generate` needs a schema that includes `groundcover_connected_app_json`, i.e. a TF
-provider build that ships it. Until that's released, generate the schema from a local
-provider build (the `replace` below points at a sibling checkout).
+`config/schema.json` is committed, so `make generate` works offline — you only need
+`make schema` (terraform CLI) when regenerating it after a TF provider schema change.
 
 ## The one version pin that matters
 
 This provider **embeds** the groundcover Terraform provider it's generated from, and runs
-its `Read` at reconcile time. Pin it to a version that has `data_hash`, duration
-normalization, and `groundcover_connected_app_json` — build against an older one and the
-provider ships the same drift it was meant to fix.
+its `Read` at reconcile time. `go.mod` requires it as a normal public module
+(`github.com/groundcover-com/terraform-provider-groundcover`), pinned to a version that has
+`data_hash`, duration normalization, `groundcover_connected_app_json`, and `pkg/tfprovider`
+(≥ v1.16.1) — build against an older one and the provider ships the same drift it was meant
+to fix.
 
-- **Dev:** `go.mod` has `replace github.com/groundcover-com/terraform-provider-groundcover => ../terraform-provider-groundcover` for local co-development.
-- **Release:** drop the `replace`, require the published version, regenerate, tag.
+When a new TF provider release changes resource schema or `Read`/drift behavior:
+`go get github.com/groundcover-com/terraform-provider-groundcover@vX.Y.Z`, regenerate
+`config/schema.json` (`make schema` once it's on the registry, or from a local build),
+`make generate`, and cut a new provider release.
 
-When a new TF provider release changes resource schema or `Read`/drift behavior, bump the
-dependency, `make generate`, and cut a new provider release.
+For local co-development against an unreleased TF provider, add a temporary
+`replace => ../terraform-provider-groundcover` (don't commit it).
 
 ## Layout
 
