@@ -1,0 +1,144 @@
+name: E2E
+
+# Smoke test against a live groundcover backend: build the provider, run it out-of-cluster
+# against a kind cluster, and reconcile a ConnectedAppJson + NotificationRoute (exercises
+# the notification_route nested-attribute path end to end). Resources are uniquely named per
+# run and deleted afterward.
+#
+# Requires a `testing` environment with these secrets (same as the Terraform provider repo):
+#   GROUNDCOVER_API_KEY, GROUNDCOVER_API_URL, GROUNDCOVER_BACKEND_ID
+# and CI_REPO_TOKEN (read access to terraform-provider-groundcover, for the go.mod replace).
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+
+jobs:
+  e2e:
+    name: Reconcile against live backend
+    runs-on: ubuntu-latest
+    environment: testing
+    steps:
+      - name: Checkout crossplane provider
+        uses: actions/checkout@v4
+        with:
+          path: crossplane-provider-groundcover
+
+      - name: Checkout terraform provider (for the go.mod replace)
+        uses: actions/checkout@v4
+        with:
+          repository: groundcover-com/terraform-provider-groundcover
+          ref: main
+          path: terraform-provider-groundcover
+          token: ${{ secrets.CI_REPO_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: crossplane-provider-groundcover/go.mod
+          cache-dependency-path: crossplane-provider-groundcover/go.sum
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: gc-crossplane-e2e
+
+      - name: Generate + build
+        working-directory: crossplane-provider-groundcover
+        run: |
+          make crds
+          go build -o _output/provider ./cmd/provider
+
+      - name: Install CRDs
+        working-directory: crossplane-provider-groundcover
+        run: |
+          kubectl apply -f package/crds
+          kubectl create namespace crossplane-system --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Credentials + ProviderConfig
+        working-directory: crossplane-provider-groundcover
+        env:
+          GROUNDCOVER_API_KEY: ${{ secrets.GROUNDCOVER_API_KEY }}
+          GROUNDCOVER_API_URL: ${{ secrets.GROUNDCOVER_API_URL }}
+          GROUNDCOVER_BACKEND_ID: ${{ secrets.GROUNDCOVER_BACKEND_ID }}
+        run: |
+          kubectl create secret generic groundcover-creds -n crossplane-system \
+            --from-literal=credentials="{\"api_key\":\"${GROUNDCOVER_API_KEY}\",\"backend_id\":\"${GROUNDCOVER_BACKEND_ID}\",\"api_url\":\"${GROUNDCOVER_API_URL}\"}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f examples/providerconfig.yaml
+
+      - name: Run provider (out-of-cluster, background)
+        working-directory: crossplane-provider-groundcover
+        run: |
+          ./_output/provider -d > provider.log 2>&1 &
+          echo "PROVIDER_PID=$!" >> "$GITHUB_ENV"
+          sleep 10
+          grep -q "Starting workers" provider.log || { echo "provider failed to start"; cat provider.log; exit 1; }
+
+      - name: Reconcile ConnectedAppJson + NotificationRoute
+        working-directory: crossplane-provider-groundcover
+        run: |
+          set -euo pipefail
+          RUN="${GITHUB_RUN_ID}"
+          kubectl create secret generic slack-app-data-$RUN -n crossplane-system \
+            --from-literal=data='{"url":"https://hooks.slack.com/services/T0/B0/XXXXXXXXXXXX"}' \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          cat <<EOF | kubectl apply -f -
+          apiVersion: integrations.groundcover.com/v1alpha1
+          kind: ConnectedAppJson
+          metadata:
+            name: e2e-ci-$RUN
+          spec:
+            providerConfigRef: { name: default }
+            forProvider:
+              name: e2e-ci-$RUN
+              type: slack-webhook
+              dataSecretRef: { namespace: crossplane-system, name: slack-app-data-$RUN, key: data }
+          EOF
+
+          echo "Waiting for ConnectedAppJson to become Ready..."
+          kubectl wait connectedappjson/e2e-ci-$RUN --for=condition=Ready --timeout=180s
+          CA_ID=$(kubectl get connectedappjson e2e-ci-$RUN -o jsonpath='{.metadata.annotations.crossplane\.io/external-name}')
+          echo "connected app id: $CA_ID"
+
+          cat <<EOF | kubectl apply -f -
+          apiVersion: notifications.groundcover.com/v1alpha1
+          kind: NotificationRoute
+          metadata:
+            name: e2e-ci-$RUN
+          spec:
+            providerConfigRef: { name: default }
+            forProvider:
+              name: e2e-ci-$RUN
+              query: severity = 'S1'
+              routes:
+                - status: [Alerting, Resolved]
+                  connectedApps:
+                    - type: slack-webhook
+                      id: $CA_ID
+              notificationSettings:
+                renotificationInterval: 1h
+          EOF
+
+          echo "Waiting for NotificationRoute to become Ready..."
+          kubectl wait notificationroute/e2e-ci-$RUN --for=condition=Ready --timeout=180s
+
+          echo "Confirming no drift (Synced stays True over a reconcile)..."
+          kubectl annotate notificationroute e2e-ci-$RUN drift/check="$(date +%s)" --overwrite
+          sleep 15
+          kubectl wait notificationroute/e2e-ci-$RUN --for=condition=Synced --timeout=60s
+          echo "E2E OK"
+
+      - name: Provider logs
+        if: always()
+        working-directory: crossplane-provider-groundcover
+        run: tail -n 100 provider.log || true
+
+      - name: Cleanup (delete from backend)
+        if: always()
+        run: |
+          RUN="${GITHUB_RUN_ID}"
+          kubectl delete notificationroute e2e-ci-$RUN --ignore-not-found --timeout=120s || true
+          kubectl delete connectedappjson e2e-ci-$RUN --ignore-not-found --timeout=120s || true
+          if [ -n "${PROVIDER_PID:-}" ]; then kill "$PROVIDER_PID" 2>/dev/null || true; fi
