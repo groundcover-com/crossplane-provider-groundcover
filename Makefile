@@ -53,6 +53,8 @@ schema: ## Produce config/schema.json from the Terraform provider (requires terr
 
 .PHONY: generate
 generate: $(PROVIDER_SCHEMA) ## Run the upjet generation pipeline (CRDs, controllers, examples).
+	@echo ">> installing goimports (upjet's pipeline shells out to the goimports binary on PATH)"
+	go install golang.org/x/tools/cmd/goimports@latest
 	@echo ">> running upjet generation pipeline"
 	go run ./cmd/generator
 	@echo ">> generating deepcopy methods (controller-gen)"
