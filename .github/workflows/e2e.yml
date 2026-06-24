@@ -60,65 +60,16 @@ jobs:
           sleep 10
           grep -q "Starting workers" provider.log || { echo "provider failed to start"; cat provider.log; exit 1; }
 
-      - name: Reconcile ConnectedAppJson + NotificationRoute
-        run: |
-          set -euo pipefail
-          RUN="${GITHUB_RUN_ID}"
-          kubectl create secret generic slack-app-data-$RUN -n crossplane-system \
-            --from-literal=data='{"url":"https://hooks.slack.com/services/T0/B0/XXXXXXXXXXXX"}' \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-          cat <<EOF | kubectl apply -f -
-          apiVersion: integrations.groundcover.com/v1alpha1
-          kind: ConnectedAppJson
-          metadata:
-            name: e2e-ci-$RUN
-          spec:
-            providerConfigRef: { name: default }
-            forProvider:
-              name: e2e-ci-$RUN
-              type: slack-webhook
-              dataSecretRef: { namespace: crossplane-system, name: slack-app-data-$RUN, key: data }
-          EOF
-
-          echo "Waiting for ConnectedAppJson to become Ready..."
-          kubectl wait connectedappjson/e2e-ci-$RUN --for=condition=Ready --timeout=180s
-          CA_ID=$(kubectl get connectedappjson e2e-ci-$RUN -o jsonpath='{.metadata.annotations.crossplane\.io/external-name}')
-          echo "connected app id: $CA_ID"
-
-          cat <<EOF | kubectl apply -f -
-          apiVersion: notifications.groundcover.com/v1alpha1
-          kind: NotificationRoute
-          metadata:
-            name: e2e-ci-$RUN
-          spec:
-            providerConfigRef: { name: default }
-            forProvider:
-              name: e2e-ci-$RUN
-              query: severity = 'S1'
-              routes:
-                - status: [Alerting, Resolved]
-                  connectedApps:
-                    - type: slack-webhook
-                      id: $CA_ID
-              notificationSettings:
-                renotificationInterval: 1h
-          EOF
-
-          echo "Waiting for NotificationRoute to become Ready..."
-          kubectl wait notificationroute/e2e-ci-$RUN --for=condition=Ready --timeout=180s
-
-          echo "Confirming no drift (Synced stays True over a reconcile)..."
-          kubectl annotate notificationroute e2e-ci-$RUN drift/check="$(date +%s)" --overwrite
-          sleep 15
-          kubectl wait notificationroute/e2e-ci-$RUN --for=condition=Synced --timeout=60s
-          echo "E2E OK"
+      - name: Run e2e tests
+        env:
+          E2E_RUN_ID: ${{ github.run_id }}
+        run: go test -tags e2e -v -timeout 15m ./test/e2e/...
 
       - name: Provider logs
         if: always()
         run: tail -n 100 provider.log || true
 
-      - name: Cleanup (delete from backend)
+      - name: Cleanup (backstop — the test deletes its own resources)
         if: always()
         run: |
           RUN="${GITHUB_RUN_ID}"
