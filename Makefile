@@ -1,13 +1,13 @@
 # Makefile for the groundcover Crossplane provider (upjet-generated).
 #
-# This provider is generated from the groundcover Terraform provider that lives in the
-# parent directory. See README.md for the full generation runbook and the design notes
-# in the BE-2055 spec.
+# This provider is generated from the groundcover Terraform provider, which go.mod requires
+# as a normal module. See README.md and DEVELOPING.md for the generation/packaging runbook.
 
 # ====================================================================================
-# Terraform provider source (POC: pin to a published groundcover provider version).
-# To generate against the in-repo provider instead, build it locally and point
-# PROVIDER_SCHEMA at the schema produced by `terraform providers schema -json`.
+# Terraform provider source (used only by `make schema` to regenerate config/schema.json
+# from the public registry; the committed schema.json is the source of truth otherwise).
+# To regenerate against an unreleased local build, build it and point PROVIDER_SCHEMA at the
+# schema produced by `terraform providers schema -json`.
 
 TERRAFORM_PROVIDER_SOURCE        ?= groundcover-com/groundcover
 TERRAFORM_PROVIDER_REPO          ?= https://github.com/groundcover-com/terraform-provider-groundcover

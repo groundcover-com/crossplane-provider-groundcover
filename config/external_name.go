@@ -18,7 +18,7 @@ var ExternalNameConfigs = map[string]config.ExternalName{
 // ExternalNameConfigured returns the list of Terraform resources that have an
 // external-name configuration, in the regex form upjet's include lists expect (anchored
 // with a trailing "$"). It feeds WithTerraformPluginFrameworkIncludeList so only the
-// POC resources are generated.
+// configured resources are generated.
 func ExternalNameConfigured() []string {
 	l := make([]string, 0, len(ExternalNameConfigs))
 	for name := range ExternalNameConfigs {

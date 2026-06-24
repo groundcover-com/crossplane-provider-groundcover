@@ -28,7 +28,7 @@ const (
 //
 // The provider is a terraform-plugin-framework provider, so only the
 // TerraformPluginFramework include list is populated; the SDKv2/CLI include lists stay
-// empty. The include list is scoped to the POC resources via ExternalNameConfigured.
+// empty. The include list is scoped to the configured resources via ExternalNameConfigured.
 func GetProvider() *config.Provider {
 	pc := config.NewProvider(
 		liftNestedAttributesToBlocks(coerceDynamicAttributesToString(schemaJSON)),

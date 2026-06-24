@@ -1,13 +1,13 @@
 # crossplane-provider-groundcover
 
-> ⚠️ **PRIVATE / INTERNAL — do not make this repository public.** POC under BE-2207.
-> No release/publish automation is configured yet. Flip to public only on an explicit
-> go-public decision.
+> 🚧 **Internal / early access.** Verified end-to-end against a live backend and ready for
+> groundcover teammates to try. Not yet published to the public Crossplane registry — until
+> the package is published, run it from source (see [DEVELOPING.md](./DEVELOPING.md)).
 
-Manage your [groundcover](https://groundcover.com) resources — **monitors, dashboards, and
-connected apps** — directly from Kubernetes with [Crossplane](https://crossplane.io),
-instead of Terraform. You write Kubernetes manifests (`kind: Monitor`, etc.); Crossplane
-continuously reconciles them against the groundcover API.
+Manage your [groundcover](https://groundcover.com) resources — **monitors, dashboards,
+connected apps, and notification routes** — directly from Kubernetes with
+[Crossplane](https://crossplane.io), instead of Terraform. You write Kubernetes manifests
+(`kind: Monitor`, etc.); Crossplane continuously reconciles them against the groundcover API.
 
 It's generated from the [groundcover Terraform provider](https://github.com/groundcover-com/terraform-provider-groundcover)
 with [upjet](https://github.com/crossplane/upjet), so it talks to the exact same API and
@@ -27,7 +27,7 @@ reuses the same drift handling — you just drive it the GitOps/Crossplane way.
 Runnable manifests live in [`examples/`](./examples). Apply them in order:
 
 ```bash
-# 1. Install the provider (registers the Monitor/Dashboard/ConnectedAppJson CRDs)
+# 1. Install the provider (registers the Monitor/Dashboard/ConnectedAppJson/NotificationRoute CRDs)
 kubectl apply -f examples/provider.yaml
 kubectl wait provider/provider-groundcover --for=condition=Healthy --timeout=2m
 
@@ -50,6 +50,7 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 | Monitor | [`examples/monitor.yaml`](./examples/monitor.yaml) | `monitorYaml` = the same YAML as `groundcover_monitor.monitor_yaml` |
 | Dashboard | [`examples/dashboard.yaml`](./examples/dashboard.yaml) | `kubectl explain dashboard.spec.forProvider` for the schema |
 | ConnectedAppJson | [`examples/connectedappjson.yaml`](./examples/connectedappjson.yaml) | sensitive `data` supplied via a Secret reference |
+| NotificationRoute | [`examples/notificationroute.yaml`](./examples/notificationroute.yaml) | routes issues to connected apps by status; references a connected-app id |
 | Install / config | [`examples/provider.yaml`](./examples/provider.yaml), [`examples/providerconfig.yaml`](./examples/providerconfig.yaml) | |
 
 > `api_url` defaults to `https://api.groundcover.com`; add it to the credentials Secret JSON
@@ -62,6 +63,7 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 | `groundcover_monitor` (`monitor_yaml`) | `kind: Monitor` (`spec.forProvider.monitorYaml`) |
 | `groundcover_dashboard` | `kind: Dashboard` |
 | `groundcover_connected_app` (`data = { ... }`) | `kind: ConnectedAppJson` (`data` as JSON, via `dataSecretRef`) |
+| `groundcover_notification_route` | `kind: NotificationRoute` |
 | `provider "groundcover" { api_key, backend_id }` | `ProviderConfig` + a credentials `Secret` |
 
 The connected-app `data` is a JSON string here (Crossplane/upjet can't represent the
@@ -84,13 +86,14 @@ make xpkg VERSION=v1.16.1          # build the package locally (no push)
 make publish ALLOW_PUBLISH=true VERSION=v1.16.1   # push — guarded, intentionally manual
 ```
 
-`make publish` refuses to run without `ALLOW_PUBLISH=true`: the provider is **private and
-not yet published** by deliberate choice — it must be tested by the team out of an internal
-registry before anything goes to the public registry. Nothing publishes automatically.
+`make publish` refuses to run without `ALLOW_PUBLISH=true`: the package is **not published
+yet** by deliberate choice — the team tries it out of source / an internal registry first,
+and going to the public registry is an explicit, separate decision. Nothing publishes
+automatically.
 
 ## Status
 
-POC. Resource reconciliation (monitor, dashboard, connected-app-json, notification-route)
-is **verified end-to-end** against a live backend. The package builds (`make xpkg`) but is
-**not published** — pending team testing and an explicit go-public decision. Build/run from
-source meanwhile — see [DEVELOPING.md](./DEVELOPING.md).
+Resource reconciliation (monitor, dashboard, connected-app-json, notification-route) is
+**verified end-to-end** against a live backend, in CI on every change. The package builds
+(`make xpkg`) but is **not published** yet — build/run from source for now (see
+[DEVELOPING.md](./DEVELOPING.md)).
