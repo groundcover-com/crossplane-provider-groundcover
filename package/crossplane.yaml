@@ -1,0 +1,22 @@
+# Crossplane package metadata for the groundcover provider.
+#
+# This file plus the generated CRDs (package/crds, produced by `make crds`) form the
+# package root that `crossplane xpkg build` bundles into the provider .xpkg.
+apiVersion: meta.pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-groundcover
+  annotations:
+    meta.crossplane.io/maintainer: groundcover <support@groundcover.com>
+    meta.crossplane.io/source: github.com/groundcover-com/crossplane-provider-groundcover
+    meta.crossplane.io/license: Apache-2.0
+    meta.crossplane.io/description: |
+      Manage groundcover resources (monitors, dashboards, connected apps, notification
+      routes) from Kubernetes with Crossplane. Generated from the groundcover Terraform
+      provider with upjet, so it talks to the same API and reuses the same drift handling.
+    meta.crossplane.io/readme: |
+      See https://github.com/groundcover-com/crossplane-provider-groundcover for usage,
+      examples, and the Terraform-to-Crossplane mapping.
+spec:
+  crossplane:
+    version: ">=v1.15.0-0"

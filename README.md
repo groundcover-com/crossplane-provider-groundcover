@@ -73,8 +73,24 @@ No custom drift logic in this repo. upjet runs the groundcover provider's own `R
 every reconcile, so the existing suppression (monitor/dashboard YAML normalization,
 connected-app `data_hash`) applies unchanged — no perpetual diffs.
 
+## Publishing
+
+The provider ships as a Crossplane package (`.xpkg`) destined for the default Crossplane
+registry, [`xpkg.crossplane.io`](https://blog.crossplane.io/new-default-crossplane-registry-in-crossplane-1-15/).
+The build pipeline is wired up (see [DEVELOPING.md](./DEVELOPING.md#packaging)):
+
+```bash
+make xpkg VERSION=v1.16.1          # build the package locally (no push)
+make publish ALLOW_PUBLISH=true VERSION=v1.16.1   # push — guarded, intentionally manual
+```
+
+`make publish` refuses to run without `ALLOW_PUBLISH=true`: the provider is **private and
+not yet published** by deliberate choice — it must be tested by the team out of an internal
+registry before anything goes to the public registry. Nothing publishes automatically.
+
 ## Status
 
-POC (BE-2207). The provider package is **not published yet**, so `examples/provider.yaml`
-points at a placeholder image and the manifests are unverified end-to-end pending the
-in-flight PRs. Build from source meanwhile — see [DEVELOPING.md](./DEVELOPING.md).
+POC. Resource reconciliation (monitor, dashboard, connected-app-json, notification-route)
+is **verified end-to-end** against a live backend. The package builds (`make xpkg`) but is
+**not published** — pending team testing and an explicit go-public decision. Build/run from
+source meanwhile — see [DEVELOPING.md](./DEVELOPING.md).

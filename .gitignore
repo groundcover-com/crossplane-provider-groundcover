@@ -9,4 +9,10 @@ config/schema.json
 # (adding the upjet-provider-template base packages) is when these get committed.
 apis/
 internal/controller/
-package/
+
+# Generated CRDs bundled into the package (produced by `make crds`). The hand-written
+# package metadata (package/crossplane.yaml) IS tracked.
+package/crds/
+
+# Build output (provider binary, built .xpkg).
+_output/

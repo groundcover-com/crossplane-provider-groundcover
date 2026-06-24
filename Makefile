@@ -66,3 +66,56 @@ generate: $(PROVIDER_SCHEMA) ## Run the upjet generation pipeline (CRDs, control
 $(PROVIDER_SCHEMA):
 	@echo "ERROR: $(PROVIDER_SCHEMA) not found. Run 'make schema' first (needs the terraform CLI)."
 	@exit 1
+
+# ====================================================================================
+# Packaging / publishing (Crossplane registry: xpkg.crossplane.io)
+#
+# A Crossplane provider ships as an OCI package (.xpkg) that bundles the package metadata
+# (package/crossplane.yaml) + CRDs and embeds the controller runtime image. Build it with
+# the crossplane CLI: https://docs.crossplane.io/latest/cli/ (`crossplane` on PATH).
+#
+#   make xpkg                 # build the .xpkg locally (no push)
+#   make publish ALLOW_PUBLISH=true VERSION=v1.16.1
+#
+# Nothing is pushed unless ALLOW_PUBLISH=true is set explicitly — the provider is private
+# and unverified end-to-end. See README "Publishing".
+
+REGISTRY      ?= xpkg.crossplane.io
+ORG           ?= groundcover-com
+PROVIDER_NAME ?= provider-groundcover
+VERSION       ?= v0.0.0-dev
+PLATFORM      ?= linux/amd64
+
+CONTROLLER_IMAGE ?= $(PROVIDER_NAME)-controller:$(VERSION)
+XPKG_REF         ?= $(REGISTRY)/$(ORG)/$(PROVIDER_NAME):$(VERSION)
+XPKG_FILE        ?= _output/$(PROVIDER_NAME)-$(VERSION).xpkg
+CROSSPLANE       ?= crossplane
+
+.PHONY: crds
+crds: generate ## Generate CRDs into package/crds for packaging.
+	@mkdir -p package/crds
+	$(CONTROLLER_GEN) crd:allowDangerousTypes=true paths=./apis/... output:crd:dir=package/crds
+
+.PHONY: provider-binary
+provider-binary: ## Build the static linux controller binary into _output/.
+	@mkdir -p _output
+	CGO_ENABLED=0 GOOS=$(word 1,$(subst /, ,$(PLATFORM))) GOARCH=$(word 2,$(subst /, ,$(PLATFORM))) \
+		go build -o _output/provider ./cmd/provider
+
+.PHONY: image
+image: provider-binary ## Build the controller runtime OCI image.
+	docker build --platform=$(PLATFORM) -t $(CONTROLLER_IMAGE) -f Dockerfile _output
+
+.PHONY: xpkg
+xpkg: crds image ## Build the Crossplane provider package (.xpkg). No push.
+	@command -v $(CROSSPLANE) >/dev/null 2>&1 || { echo "crossplane CLI required: https://docs.crossplane.io/latest/cli/"; exit 1; }
+	@mkdir -p _output
+	$(CROSSPLANE) xpkg build --package-root=package --embed-runtime-image=$(CONTROLLER_IMAGE) --package-file=$(XPKG_FILE)
+	@echo ">> built $(XPKG_FILE)"
+
+.PHONY: publish
+publish: ## Push the .xpkg to the registry. GUARDED: requires ALLOW_PUBLISH=true.
+	@[ "$(ALLOW_PUBLISH)" = "true" ] || { echo "Refusing to publish: provider is private/unverified. Re-run with ALLOW_PUBLISH=true VERSION=<vX.Y.Z> once approved."; exit 1; }
+	@test -f $(XPKG_FILE) || { echo "$(XPKG_FILE) not found; run 'make xpkg VERSION=$(VERSION)' first"; exit 1; }
+	$(CROSSPLANE) xpkg push --package-files=$(XPKG_FILE) $(XPKG_REF)
+	@echo ">> pushed $(XPKG_REF)"

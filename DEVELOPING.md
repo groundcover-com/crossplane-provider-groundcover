@@ -40,3 +40,29 @@ dependency, `make generate`, and cut a new provider release.
 | `apis/<group>/` | generated CRD API types (gitignored; `make generate`) |
 | `internal/controller/<group>/` | generated controllers (gitignored; `make generate`) |
 | `cmd/provider/` | provider binary entrypoint |
+| `package/crossplane.yaml` | package metadata (tracked); `package/crds/` is generated |
+| `Dockerfile` | controller runtime image (distroless, non-root) |
+
+## Packaging
+
+The provider ships as a Crossplane package (`.xpkg`) for [`xpkg.crossplane.io`](https://blog.crossplane.io/new-default-crossplane-registry-in-crossplane-1-15/).
+Needs the [`crossplane` CLI](https://docs.crossplane.io/latest/cli/) and Docker.
+
+```bash
+make crds              # generate CRDs into package/crds
+make image             # build the controller runtime image
+make xpkg VERSION=v1.16.1    # build _output/<provider>-v1.16.1.xpkg (crds + meta + embedded image). No push.
+```
+
+`make xpkg` chains `crds` + `image`. Override `REGISTRY`/`ORG`/`PROVIDER_NAME`/`PLATFORM` as
+needed (defaults: `xpkg.crossplane.io` / `groundcover-com` / `provider-groundcover` / `linux/amd64`).
+
+Publishing is guarded — it never runs without an explicit opt-in:
+
+```bash
+make publish ALLOW_PUBLISH=true VERSION=v1.16.1   # crossplane xpkg push to $REGISTRY/$ORG/...
+```
+
+For team testing before going public, push to an internal/private OCI registry instead
+(`make publish ALLOW_PUBLISH=true REGISTRY=<internal-registry> VERSION=...`) and point
+`examples/provider.yaml` at that image.
