@@ -8,6 +8,7 @@ import (
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/connectedapp"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/dashboard"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/monitor"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/notificationroute"
 )
 
 const (
@@ -30,7 +31,7 @@ const (
 // empty. The include list is scoped to the POC resources via ExternalNameConfigured.
 func GetProvider() *config.Provider {
 	pc := config.NewProvider(
-		coerceDynamicAttributesToString(schemaJSON),
+		liftNestedAttributesToBlocks(coerceDynamicAttributesToString(schemaJSON)),
 		resourcePrefix,
 		modulePath,
 		nil,
@@ -51,6 +52,7 @@ func GetProvider() *config.Provider {
 		monitor.Configure,
 		dashboard.Configure,
 		connectedapp.Configure,
+		notificationroute.Configure,
 	} {
 		configure(pc)
 	}

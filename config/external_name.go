@@ -12,6 +12,7 @@ var ExternalNameConfigs = map[string]config.ExternalName{
 	"groundcover_monitor":            config.IdentifierFromProvider,
 	"groundcover_dashboard":          config.IdentifierFromProvider,
 	"groundcover_connected_app_json": config.IdentifierFromProvider,
+	"groundcover_notification_route": config.IdentifierFromProvider,
 }
 
 // ExternalNameConfigured returns the list of Terraform resources that have an

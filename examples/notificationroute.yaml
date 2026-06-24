@@ -1,0 +1,23 @@
+# A notification route: maps issues matching a gcQL query to connected apps, by status.
+# The connected app IDs are the external names (server-assigned UUIDs) of ConnectedAppJson
+# resources, or any connected app ID from the groundcover UI.
+apiVersion: notifications.groundcover.com/v1alpha1
+kind: NotificationRoute
+metadata:
+  name: alerting-to-slack
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: alerting-to-slack
+    query: severity = 'S1'
+    routes:
+      - status:
+          - Alerting
+          - Resolved
+        connectedApps:
+          - type: slack-webhook
+            id: REPLACE_WITH_CONNECTED_APP_ID
+    # Optional; the API may normalize the value (e.g. "60m" -> "1h").
+    notificationSettings:
+      renotificationInterval: 1h

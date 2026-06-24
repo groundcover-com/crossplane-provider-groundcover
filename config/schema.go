@@ -55,6 +55,96 @@ func coerceDynamicAttributesToString(schema []byte) []byte {
 	return out
 }
 
+// liftNestedAttributesToBlocks rewrites terraform-plugin-framework NestedAttribute schema
+// (encoded in the JSON as an attribute carrying a "nested_type") into the SDKv2
+// "block_types" form that upjet's tfjson->SDKv2 converter understands.
+//
+// upjet v1.11's converter (GetV2ResourceMap) only reads an attribute's flat cty "type" and
+// yields TypeInvalid for nested_type attributes (e.g. notification_route.routes and
+// .notification_settings), panicking the generator. Moving them under block_types routes
+// them through the nested-block code path. The generated Go types and the runtime cty
+// value are structurally identical either way; single-nesting becomes a singleton list in
+// the SDKv2 view, which we collapse back to an embedded object via SetEmbeddedObject in the
+// resource config so it matches the framework provider's object-typed attribute at runtime.
+func liftNestedAttributesToBlocks(schema []byte) []byte {
+	var doc map[string]any
+	if err := json.Unmarshal(schema, &doc); err != nil {
+		panic("parse provider schema JSON: " + err.Error())
+	}
+
+	providerSchemas, _ := doc["provider_schemas"].(map[string]any)
+	for _, ps := range providerSchemas {
+		psMap, ok := ps.(map[string]any)
+		if !ok {
+			continue
+		}
+		for _, key := range []string{"resource_schemas", "data_source_schemas"} {
+			schemas, ok := psMap[key].(map[string]any)
+			if !ok {
+				continue
+			}
+			for _, rs := range schemas {
+				if rsMap, ok := rs.(map[string]any); ok {
+					liftBlock(rsMap["block"])
+				}
+			}
+		}
+	}
+
+	out, err := json.Marshal(doc)
+	if err != nil {
+		panic("re-marshal provider schema JSON: " + err.Error())
+	}
+	return out
+}
+
+func liftBlock(block any) {
+	b, ok := block.(map[string]any)
+	if !ok {
+		return
+	}
+	attrs, _ := b["attributes"].(map[string]any)
+	blockTypes, _ := b["block_types"].(map[string]any)
+	if blockTypes == nil {
+		blockTypes = map[string]any{}
+	}
+
+	for name, attr := range attrs {
+		am, ok := attr.(map[string]any)
+		if !ok {
+			continue
+		}
+		nt, ok := am["nested_type"].(map[string]any)
+		if !ok {
+			continue
+		}
+		nestingMode, _ := nt["nesting_mode"].(string)
+
+		inner := map[string]any{}
+		if innerAttrs, ok := nt["attributes"].(map[string]any); ok {
+			inner["attributes"] = innerAttrs
+		}
+		liftBlock(inner) // recurse so nested NestedAttributes (e.g. connected_apps) are lifted too
+
+		bt := map[string]any{
+			"nesting_mode": nestingMode,
+			"block":        inner,
+		}
+		// A required list must have min_items>=1 so the converter treats it as required
+		// rather than optional. Single nesting stays min/max 0; the converter forces
+		// MaxItems=1 and we collapse it to an embedded object in the resource config.
+		if req, _ := am["required"].(bool); req && nestingMode == "list" {
+			bt["min_items"] = float64(1)
+		}
+		blockTypes[name] = bt
+		delete(attrs, name)
+	}
+
+	if len(blockTypes) > 0 {
+		b["block_types"] = blockTypes
+	}
+}
+
 func coerceBlock(block any) {
 	b, ok := block.(map[string]any)
 	if !ok {
