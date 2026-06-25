@@ -31,7 +31,7 @@ ANGRYJET ?= go run github.com/crossplane/crossplane-tools/cmd/angryjet@9102d33d2
 
 .PHONY: help
 help: ## Show this help.
-	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z0-9_.-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-18s %s\n", $$1, $$2}'
 
 .PHONY: test
 test: ## Run unit tests (observe decorator + strategies).
