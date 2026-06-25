@@ -1,0 +1,50 @@
+name: Release
+
+# Release dry-run, triggered manually or (later, #4) by the Terraform provider's release
+# pipeline. For now it only proves a release *would* work: run the live e2e, then build the
+# controller image + .xpkg via `make build.all`. Nothing is pushed — publishing to the
+# marketplace is a separate, gated step (#7).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to stamp the package with (e.g. v1.16.1). Dry-run default if omitted.'
+        required: false
+        default: 'v0.0.0-dev'
+
+permissions:
+  contents: read
+
+jobs:
+  # Reuse the exact e2e flow (kind + out-of-cluster provider + live backend) rather than
+  # duplicating it. secrets: inherit passes the testing-environment credentials through.
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+    secrets: inherit
+
+  build:
+    name: Build image + .xpkg (no push)
+    needs: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install crossplane CLI
+        run: |
+          curl -sL https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh | sh
+          sudo mv crossplane /usr/local/bin/
+
+      - name: Build image + .xpkg (no push)
+        run: make build.all VERSION='${{ github.event.inputs.version }}'
+
+      - name: Upload .xpkg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-groundcover-${{ github.event.inputs.version }}.xpkg
+          path: _output/*.xpkg
+          if-no-files-found: error

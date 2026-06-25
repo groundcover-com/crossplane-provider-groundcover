@@ -13,6 +13,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
+  workflow_call: # reused by release.yml; caller passes the testing-environment secrets via `secrets: inherit`
 
 jobs:
   e2e:
