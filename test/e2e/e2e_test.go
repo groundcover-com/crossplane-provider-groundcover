@@ -32,7 +32,7 @@ const (
 	namespace     = "crossplane-system"
 	readyTimeout  = 3 * time.Minute
 	deleteTimeout = 2 * time.Minute
-	settleWindow  = 15 * time.Second
+	settleWindow  = 45 * time.Second // must span several --poll cycles (provider runs --poll=10s)
 )
 
 var (
@@ -105,12 +105,27 @@ func TestNotificationRouteLifecycle(t *testing.T) {
 
 	waitCondition(ctx, t, cl, nrGVK, name, "Ready")
 
-	// No drift: after settling, the route must still report Synced=True with nothing to push.
-	time.Sleep(settleWindow)
-	if !conditionTrue(ctx, t, cl, nrGVK, name, "Synced") {
-		t.Fatal("NotificationRoute is not Synced after settling — possible drift")
+	// No drift: a converged resource is Observed up-to-date every reconcile and never
+	// re-applied. A perpetual diff (the classic upjet failure — the API returns a field in a
+	// different shape than written) re-applies on every loop, emitting an
+	// UpdatedExternalResource event each time. Synced=True does NOT catch this: each apply
+	// succeeds, so Synced stays True while the provider thrashes. So we count update events
+	// across the settle window instead.
+	nr2, err := get(ctx, cl, nrGVK, name)
+	if err != nil {
+		t.Fatalf("get %s/%s: %v", nrGVK.Kind, name, err)
 	}
-	t.Log("E2E OK: ConnectedAppJson + NotificationRoute Ready, route Synced (no drift)")
+	before := countUpdateEvents(ctx, t, cl, nr2)
+	time.Sleep(settleWindow)
+	after := countUpdateEvents(ctx, t, cl, nr2)
+
+	if !conditionTrue(ctx, t, cl, nrGVK, name, "Synced") {
+		t.Fatal("NotificationRoute is not Synced after settling")
+	}
+	if after > before {
+		t.Fatalf("NotificationRoute drifted: %d UpdatedExternalResource event(s) during %s settle window (perpetual diff)", after-before, settleWindow)
+	}
+	t.Logf("E2E OK: Ready, Synced, no re-apply over %s (0 update events) — no drift", settleWindow)
 }
 
 func runID() string {
@@ -196,6 +211,35 @@ func conditionsOf(u *unstructured.Unstructured) []any {
 	}
 	conds, _, _ := unstructured.NestedSlice(u.Object, "status", "conditions")
 	return conds
+}
+
+// countUpdateEvents totals Crossplane "UpdatedExternalResource" events for the given managed
+// resource. Kubernetes aggregates repeated identical events into one object with a rising
+// count field, so we sum count (not len). Events are listed across all namespaces and matched
+// by involvedObject UID — the MR is cluster-scoped, so its events land in "default".
+func countUpdateEvents(ctx context.Context, t *testing.T, cl client.Client, u *unstructured.Unstructured) int {
+	t.Helper()
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "EventList"})
+	if err := cl.List(ctx, list); err != nil {
+		t.Fatalf("list events: %v", err)
+	}
+	uid := string(u.GetUID())
+	total := 0
+	for i := range list.Items {
+		e := list.Items[i].Object
+		reason, _, _ := unstructured.NestedString(e, "reason")
+		ioUID, _, _ := unstructured.NestedString(e, "involvedObject", "uid")
+		if reason != "UpdatedExternalResource" || ioUID != uid {
+			continue
+		}
+		if c, found, _ := unstructured.NestedInt64(e, "count"); found {
+			total += int(c)
+		} else {
+			total++
+		}
+	}
+	return total
 }
 
 func externalName(ctx context.Context, t *testing.T, cl client.Client, gvk schema.GroupVersionKind, name string) string {
