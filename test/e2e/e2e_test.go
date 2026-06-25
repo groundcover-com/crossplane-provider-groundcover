@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,7 +33,7 @@ const (
 	namespace     = "crossplane-system"
 	readyTimeout  = 3 * time.Minute
 	deleteTimeout = 2 * time.Minute
-	settleWindow  = 15 * time.Second
+	settleWindow  = 45 * time.Second // must span several --poll cycles (provider runs --poll=10s)
 )
 
 var (
@@ -42,8 +43,9 @@ var (
 )
 
 // TestNotificationRouteLifecycle creates a ConnectedAppJson, references it from a
-// NotificationRoute, asserts both reach Ready, and confirms the route stays Synced (no
-// drift). It exercises the notification_route nested-attribute path end to end.
+// NotificationRoute, asserts both reach Ready, confirms no drift, then updates a field and
+// confirms the change is applied and re-converges (no drift after update), and finally
+// deletes. It exercises the notification_route nested-attribute path end to end.
 func TestNotificationRouteLifecycle(t *testing.T) {
 	ctx := context.Background()
 	cl := newClient(t)
@@ -105,12 +107,39 @@ func TestNotificationRouteLifecycle(t *testing.T) {
 
 	waitCondition(ctx, t, cl, nrGVK, name, "Ready")
 
-	// No drift: after settling, the route must still report Synced=True with nothing to push.
-	time.Sleep(settleWindow)
-	if !conditionTrue(ctx, t, cl, nrGVK, name, "Synced") {
-		t.Fatal("NotificationRoute is not Synced after settling — possible drift")
+	// No drift: a converged resource is Observed up-to-date every reconcile and never
+	// re-applied. A perpetual diff (the classic upjet failure — the API returns a field in a
+	// different shape than written) re-applies on every loop, emitting an
+	// UpdatedExternalResource event each time. Synced=True does NOT catch this: each apply
+	// succeeds, so Synced stays True while the provider thrashes. So we count update events
+	// across the settle window instead.
+	nr2, err := get(ctx, cl, nrGVK, name)
+	if err != nil {
+		t.Fatalf("get %s/%s: %v", nrGVK.Kind, name, err)
 	}
-	t.Log("E2E OK: ConnectedAppJson + NotificationRoute Ready, route Synced (no drift)")
+	before := countUpdateEvents(ctx, t, cl, nr2)
+	time.Sleep(settleWindow)
+	after := countUpdateEvents(ctx, t, cl, nr2)
+
+	if !conditionTrue(ctx, t, cl, nrGVK, name, "Synced") {
+		t.Fatal("NotificationRoute is not Synced after settling")
+	}
+	if after > before {
+		t.Fatalf("NotificationRoute drifted: %d UpdatedExternalResource event(s) during %s settle window (perpetual diff)", after-before, settleWindow)
+	}
+	t.Logf("create OK: Ready, Synced, no re-apply over %s (0 update events) — no drift", settleWindow)
+
+	// Update path: change a field, confirm the provider applies it exactly as an update
+	// (not a no-op), then confirm it stops re-applying — i.e. the new value round-trips
+	// without producing a perpetual diff. This is the most common place upjet providers
+	// break, and create-only coverage never touches it.
+	baseline := countUpdateEvents(ctx, t, cl, nr2)
+	setField(ctx, t, cl, nrGVK, name, "2h", "spec", "forProvider", "notificationSettings", "renotificationInterval")
+	waitApplied(ctx, t, cl, nr2, baseline)
+	waitUpdateConverged(ctx, t, cl, nr2, nrGVK, name, settleWindow)
+	t.Logf("update OK: field applied and re-converged, no drift after update")
+
+	t.Log("E2E OK: ConnectedAppJson + NotificationRoute create, update, no drift")
 }
 
 func runID() string {
@@ -196,6 +225,90 @@ func conditionsOf(u *unstructured.Unstructured) []any {
 	}
 	conds, _, _ := unstructured.NestedSlice(u.Object, "status", "conditions")
 	return conds
+}
+
+// countUpdateEvents totals Crossplane "UpdatedExternalResource" events for the given managed
+// resource. Kubernetes aggregates repeated identical events into one object with a rising
+// count field, so we sum count (not len). Events are listed across all namespaces and matched
+// by involvedObject UID — the MR is cluster-scoped, so its events land in "default".
+func countUpdateEvents(ctx context.Context, t *testing.T, cl client.Client, u *unstructured.Unstructured) int {
+	t.Helper()
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "EventList"})
+	if err := cl.List(ctx, list); err != nil {
+		t.Fatalf("list events: %v", err)
+	}
+	uid := string(u.GetUID())
+	total := 0
+	for i := range list.Items {
+		e := list.Items[i].Object
+		reason, _, _ := unstructured.NestedString(e, "reason")
+		ioUID, _, _ := unstructured.NestedString(e, "involvedObject", "uid")
+		if reason != "UpdatedExternalResource" || ioUID != uid {
+			continue
+		}
+		if c, found, _ := unstructured.NestedInt64(e, "count"); found {
+			total += int(c)
+		} else {
+			total++
+		}
+	}
+	return total
+}
+
+// setField updates a single spec field on the managed resource, retrying on the optimistic
+// conflict that the provider's own status writes commonly cause.
+func setField(ctx context.Context, t *testing.T, cl client.Client, gvk schema.GroupVersionKind, name, value string, fields ...string) {
+	t.Helper()
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		u, err := get(ctx, cl, gvk, name)
+		if err != nil {
+			return err
+		}
+		if err := unstructured.SetNestedField(u.Object, value, fields...); err != nil {
+			return err
+		}
+		return cl.Update(ctx, u)
+	})
+	if err != nil {
+		t.Fatalf("update %s/%s %v: %v", gvk.Kind, name, fields, err)
+	}
+}
+
+// waitApplied blocks until the provider has applied at least one update beyond baseline —
+// proving the spec change actually triggered an Update (not a silently-dropped no-op).
+func waitApplied(ctx context.Context, t *testing.T, cl client.Client, u *unstructured.Unstructured, baseline int) {
+	t.Helper()
+	err := wait.PollUntilContextTimeout(ctx, 3*time.Second, readyTimeout, true, func(ctx context.Context) (bool, error) {
+		return countUpdateEvents(ctx, t, cl, u) > baseline, nil
+	})
+	if err != nil {
+		t.Fatal("provider never applied the update (no new UpdatedExternalResource event) — update path not exercised or change was dropped")
+	}
+}
+
+// waitUpdateConverged blocks until the resource is Synced AND has gone quiet — no new
+// UpdatedExternalResource events for `quiet` (longer than the poll interval). A clean update
+// applies a bounded number of times then stops; a perpetual diff never goes quiet, so this
+// times out and fails.
+func waitUpdateConverged(ctx context.Context, t *testing.T, cl client.Client, u *unstructured.Unstructured, gvk schema.GroupVersionKind, name string, quiet time.Duration) {
+	t.Helper()
+	last := countUpdateEvents(ctx, t, cl, u)
+	stableSince := time.Now()
+	deadline := time.Now().Add(readyTimeout)
+	for time.Now().Before(deadline) {
+		time.Sleep(5 * time.Second)
+		n := countUpdateEvents(ctx, t, cl, u)
+		if n != last {
+			last = n
+			stableSince = time.Now()
+			continue
+		}
+		if conditionTrue(ctx, t, cl, gvk, name, "Synced") && time.Since(stableSince) >= quiet {
+			return
+		}
+	}
+	t.Fatalf("%s/%s never stopped re-applying after update within %s (perpetual diff)", gvk.Kind, name, readyTimeout)
 }
 
 func externalName(ctx context.Context, t *testing.T, cl client.Client, gvk schema.GroupVersionKind, name string) string {

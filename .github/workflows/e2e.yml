@@ -55,7 +55,7 @@ jobs:
 
       - name: Run provider (out-of-cluster, background)
         run: |
-          ./_output/provider -d > provider.log 2>&1 &
+          ./_output/provider -d --poll 10s > provider.log 2>&1 &
           echo "PROVIDER_PID=$!" >> "$GITHUB_ENV"
           sleep 10
           grep -q "Starting workers" provider.log || { echo "provider failed to start"; cat provider.log; exit 1; }
