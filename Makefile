@@ -121,3 +121,18 @@ publish: ## Push the .xpkg to the registry. GUARDED: requires ALLOW_PUBLISH=true
 	@test -f $(XPKG_FILE) || { echo "$(XPKG_FILE) not found; run 'make xpkg VERSION=$(VERSION)' first"; exit 1; }
 	$(CROSSPLANE) xpkg push --package-files=$(XPKG_FILE) $(XPKG_REF)
 	@echo ">> pushed $(XPKG_REF)"
+
+# ====================================================================================
+# Ecosystem-compatible aliases. Thin wrappers so this provider answers to the same verbs
+# as makelib-based crossplane providers, without vendoring the crossplane/build submodule.
+
+.PHONY: build.all
+build.all: xpkg ## Alias for `xpkg` — build controller image + .xpkg (makelib verb).
+
+.PHONY: reviewable
+reviewable: generate ## Generate then vet; run before opening a PR (makelib verb).
+	go vet ./...
+
+.PHONY: e2e
+e2e: ## Run the live-backend e2e suite (needs a cluster + creds; see test/e2e).
+	go test -tags e2e -v -timeout 15m ./test/e2e/...
