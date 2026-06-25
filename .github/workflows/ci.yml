@@ -2,9 +2,9 @@ name: Go CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
 
 # The generated tree (apis/, internal/controller/) is not committed — every job runs
 # `make generate` first. Generation embeds config/schema.json (committed) and compiles
