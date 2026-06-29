@@ -5,10 +5,20 @@ import (
 
 	"github.com/groundcover-com/terraform-provider-groundcover/pkg/tfprovider"
 
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/apikey"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/connectedapp"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/dashboard"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/dataintegration"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/ingestionkey"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/logspipeline"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/metricsaggregation"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/metricspipeline"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/monitor"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/notificationroute"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/secret"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/serviceaccount"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/silence"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/tracespipeline"
 )
 
 const (
@@ -53,6 +63,16 @@ func GetProvider() *config.Provider {
 		dashboard.Configure,
 		connectedapp.Configure,
 		notificationroute.Configure,
+		apikey.Configure,
+		ingestionkey.Configure,
+		serviceaccount.Configure,
+		secret.Configure,
+		silence.Configure,
+		dataintegration.Configure,
+		logspipeline.Configure,
+		metricspipeline.Configure,
+		tracespipeline.Configure,
+		metricsaggregation.Configure,
 	} {
 		configure(pc)
 	}
