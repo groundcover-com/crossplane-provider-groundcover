@@ -40,7 +40,9 @@ jobs:
           sudo mv crossplane /usr/local/bin/
 
       - name: Build image + .xpkg (no push)
-        run: make build.all VERSION='${{ github.event.inputs.version }}'
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: make build.all VERSION="$VERSION"
 
       - name: Upload .xpkg artifact
         uses: actions/upload-artifact@v4
@@ -62,16 +64,28 @@ jobs:
         with:
           name: provider-groundcover-${{ github.event.inputs.version }}.xpkg
 
+      # Pinned + checksum-verified: the install step runs in the same job as UP_TOKEN, so a
+      # tampered installer could plant a malicious `up` that exfiltrates the token. Bump
+      # UP_VERSION/UP_SHA256 together (sha256 of cli.upbound.io/stable/<v>/bin/linux_amd64/up).
       - name: Install up CLI
+        env:
+          UP_VERSION: v0.49.1
+          UP_SHA256: 94655d276713aa37509a8fa91156a9ca1e66cdadf3f3450eb4a318d1fefb210b
         run: |
-          curl -sL https://cli.upbound.io | sh
+          curl -fsSL "https://cli.upbound.io/stable/${UP_VERSION}/bin/linux_amd64/up" -o up
+          echo "${UP_SHA256}  up" | sha256sum -c -
+          chmod +x up
           sudo mv up /usr/local/bin/
 
+      # version is passed via env (not interpolated into the shell) and validated against the
+      # tag format before use, so it can't be treated as code in a step that holds UP_TOKEN.
       - name: Push to Upbound
         env:
           UP_TOKEN: ${{ secrets.UP_TOKEN }}
+          VERSION: ${{ github.event.inputs.version }}
         run: |
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "Invalid version: $VERSION"; exit 1; }
           up login --token "$UP_TOKEN"
           up xpkg push \
-            xpkg.upbound.io/groundcover-com/provider-groundcover:${{ github.event.inputs.version }} \
-            -f provider-groundcover-${{ github.event.inputs.version }}.xpkg
+            "xpkg.upbound.io/groundcover-com/provider-groundcover:${VERSION}" \
+            -f "provider-groundcover-${VERSION}.xpkg"
