@@ -80,6 +80,9 @@ jobs:
           VERSION: ${{ github.event.inputs.version }}
         run: |
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "Invalid version: $VERSION"; exit 1; }
+          # Upbound doesn't auto-create repos on push; ensure it exists (no-op if already there).
+          # If this fails for a real reason (auth/perms), the push below fails loudly anyway.
+          up repository create provider-groundcover || true
           up xpkg push \
             "xpkg.upbound.io/groundcover-com/provider-groundcover:${VERSION}" \
             -f "provider-groundcover-${VERSION}.xpkg"
