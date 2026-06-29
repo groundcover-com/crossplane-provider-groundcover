@@ -48,3 +48,30 @@ jobs:
           name: provider-groundcover-${{ github.event.inputs.version }}.xpkg
           path: _output/*.xpkg
           if-no-files-found: error
+
+  # Push the built .xpkg to the Upbound registry. Private repo by default — this does NOT
+  # make it public on the marketplace (that's a separate `up repository update --publish`
+  # step). Skipped for dry-runs so junk versions never reach the public namespace.
+  publish-upbound:
+    name: Push .xpkg to Upbound
+    needs: build
+    if: github.event.inputs.version != 'v0.0.0-dev'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: provider-groundcover-${{ github.event.inputs.version }}.xpkg
+
+      - name: Install up CLI
+        run: |
+          curl -sL https://cli.upbound.io | sh
+          sudo mv up /usr/local/bin/
+
+      - name: Push to Upbound
+        env:
+          UP_TOKEN: ${{ secrets.UP_TOKEN }}
+        run: |
+          up login --token "$UP_TOKEN"
+          up xpkg push \
+            xpkg.upbound.io/groundcover-com/provider-groundcover:${{ github.event.inputs.version }} \
+            -f provider-groundcover-${{ github.event.inputs.version }}.xpkg

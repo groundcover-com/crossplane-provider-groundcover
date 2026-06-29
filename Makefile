@@ -70,7 +70,7 @@ $(PROVIDER_SCHEMA):
 	@exit 1
 
 # ====================================================================================
-# Packaging / publishing (Crossplane registry: xpkg.crossplane.io)
+# Packaging / publishing (Upbound registry: xpkg.upbound.io)
 #
 # A Crossplane provider ships as an OCI package (.xpkg) that bundles the package metadata
 # (package/crossplane.yaml) + CRDs and embeds the controller runtime image. Build it with
@@ -82,7 +82,7 @@ $(PROVIDER_SCHEMA):
 # Nothing is pushed unless ALLOW_PUBLISH=true is set explicitly — the provider is private
 # and unverified end-to-end. See README "Publishing".
 
-REGISTRY      ?= xpkg.crossplane.io
+REGISTRY      ?= xpkg.upbound.io
 ORG           ?= groundcover-com
 PROVIDER_NAME ?= provider-groundcover
 VERSION       ?= v0.0.0-dev
