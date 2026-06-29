@@ -15,8 +15,16 @@ metadata:
       routes) from Kubernetes with Crossplane. Generated from the groundcover Terraform
       provider with upjet, so it talks to the same API and reuses the same drift handling.
     meta.crossplane.io/readme: |
-      See https://github.com/groundcover-com/crossplane-provider-groundcover for usage,
-      examples, and the Terraform-to-Crossplane mapping.
+      Manage groundcover resources — monitors, dashboards, connected apps, and
+      notification routes — directly from Kubernetes with Crossplane. Write Kubernetes
+      manifests (kind: Monitor, Dashboard, ConnectedApp, NotificationRoute) and Crossplane
+      continuously reconciles them against the groundcover API.
+
+      Getting started: install this provider, create a ProviderConfig with your groundcover
+      API key, then apply your resource manifests.
+
+      Full docs and examples:
+      https://github.com/groundcover-com/crossplane-provider-groundcover
 spec:
   crossplane:
     version: ">=v1.15.0-0"

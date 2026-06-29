@@ -1,8 +1,8 @@
 # crossplane-provider-groundcover
 
-> 🚧 **Internal / early access.** Verified end-to-end against a live backend and ready for
-> groundcover teammates to try. Not yet published to the public Crossplane registry — until
-> the package is published, run it from source (see [DEVELOPING.md](./DEVELOPING.md)).
+> **Install** from the Upbound Marketplace — package
+> `xpkg.upbound.io/groundcover-com/provider-groundcover`. Or run it from source: see
+> [DEVELOPING.md](./DEVELOPING.md).
 
 Manage your [groundcover](https://groundcover.com) resources — **monitors, dashboards,
 connected apps, and notification routes** — directly from Kubernetes with
