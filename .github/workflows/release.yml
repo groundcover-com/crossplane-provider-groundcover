@@ -81,11 +81,14 @@ jobs:
           VERSION: ${{ github.event.inputs.version }}
         run: |
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "Invalid version: $VERSION"; exit 1; }
-          up xpkg push \
-            "xpkg.upbound.io/groundcover-com/provider-groundcover:${VERSION}" \
-            -f "provider-groundcover-${VERSION}.xpkg"
+          ref="xpkg.upbound.io/groundcover-com/provider-groundcover:${VERSION}"
+          # Push all per-arch .xpkg files as one multi-arch package, so the index carries
+          # platform descriptors (amd64+arm64) — the controller then runs on arm64 clusters,
+          # and the index is well-formed for the marketplace.
+          files=$(ls provider-groundcover-${VERSION}-*.xpkg | paste -sd,)
+          echo "pushing: $files"
+          up xpkg push "$ref" -f "$files"
           # Attach marketplace assets (icon, readme) — Upbound reads these from the package's
-          # extensions, not from crossplane.yaml annotations. See extensions/ in the repo root.
-          up alpha xpkg append \
-            --extensions-root=extensions \
-            "xpkg.upbound.io/groundcover-com/provider-groundcover:${VERSION}"
+          # extensions, not from crossplane.yaml annotations. up append preserves the platform
+          # descriptors because the package is already a multi-arch index. See extensions/.
+          up alpha xpkg append --extensions-root=extensions "$ref"

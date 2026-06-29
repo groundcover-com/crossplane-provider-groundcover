@@ -87,6 +87,9 @@ ORG           ?= groundcover-com
 PROVIDER_NAME ?= provider-groundcover
 VERSION       ?= v0.0.0-dev
 PLATFORM      ?= linux/amd64
+# Architectures the published package supports. Multi-arch so the controller runs on
+# arm64 clusters too (e.g. kind on Apple Silicon), not just amd64.
+PLATFORMS     ?= linux/amd64 linux/arm64
 
 CONTROLLER_IMAGE ?= $(PROVIDER_NAME)-controller:$(VERSION)
 XPKG_REF         ?= $(REGISTRY)/$(ORG)/$(PROVIDER_NAME):$(VERSION)
@@ -115,6 +118,20 @@ xpkg: crds image ## Build the Crossplane provider package (.xpkg). No push.
 	$(CROSSPLANE) xpkg build --package-root=package --embed-runtime-image=$(CONTROLLER_IMAGE) --package-file=$(XPKG_FILE)
 	@echo ">> built $(XPKG_FILE)"
 
+.PHONY: xpkg.multi
+xpkg.multi: crds ## Build one .xpkg per PLATFORMS entry (multi-arch). No push.
+	@command -v $(CROSSPLANE) >/dev/null 2>&1 || { echo "crossplane CLI required: https://docs.crossplane.io/latest/cli/"; exit 1; }
+	@mkdir -p _output
+	@for p in $(PLATFORMS); do \
+	  os=$${p%/*}; arch=$${p#*/}; img=$(PROVIDER_NAME)-controller:$(VERSION)-$$arch; \
+	  echo ">> building $$p"; \
+	  CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -o _output/provider ./cmd/provider || exit 1; \
+	  docker build --platform=$$p -t $$img -f Dockerfile _output || exit 1; \
+	  $(CROSSPLANE) xpkg build --package-root=package --embed-runtime-image=$$img \
+	    --package-file=_output/$(PROVIDER_NAME)-$(VERSION)-$$os-$$arch.xpkg || exit 1; \
+	done
+	@echo ">> built per-arch .xpkg files: _output/$(PROVIDER_NAME)-$(VERSION)-*.xpkg"
+
 .PHONY: publish
 publish: ## Push the .xpkg to the registry. GUARDED: requires ALLOW_PUBLISH=true.
 	@[ "$(ALLOW_PUBLISH)" = "true" ] || { echo "Refusing to publish: provider is private/unverified. Re-run with ALLOW_PUBLISH=true VERSION=<vX.Y.Z> once approved."; exit 1; }
@@ -127,7 +144,7 @@ publish: ## Push the .xpkg to the registry. GUARDED: requires ALLOW_PUBLISH=true
 # as makelib-based crossplane providers, without vendoring the crossplane/build submodule.
 
 .PHONY: build.all
-build.all: xpkg ## Alias for `xpkg` — build controller image + .xpkg (makelib verb).
+build.all: xpkg.multi ## Build multi-arch .xpkg files (makelib verb). Single-arch: `make xpkg`.
 
 .PHONY: reviewable
 reviewable: generate ## Generate then vet; run before opening a PR (makelib verb).
