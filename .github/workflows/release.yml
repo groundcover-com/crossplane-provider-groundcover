@@ -89,3 +89,14 @@ jobs:
           up alpha xpkg append \
             --extensions-root=extensions \
             "xpkg.upbound.io/groundcover-com/provider-groundcover:${VERSION}"
+
+      # `up alpha xpkg append` builds the index without a platform descriptor on the package
+      # manifest; Upbound's marketplace listing generator needs it (official providers have
+      # it). Stamp architecture/os back on so the listing URL + icon generate. Idempotent.
+      - name: Stamp platform onto package index
+        env:
+          UP_TOKEN: ${{ secrets.UP_TOKEN }}
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "Invalid version: $VERSION"; exit 1; }
+          python3 hack/stamp-index-platform.py xpkg.upbound.io groundcover-com/provider-groundcover "$VERSION"
