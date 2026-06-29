@@ -120,6 +120,17 @@ func liftBlock(block any) {
 		}
 		nestingMode, _ := nt["nesting_mode"].(string)
 
+		// SDKv2 blocks support only list/set/single nesting — there is no map-of-object
+		// block, and coercing such a field to a flat string/map(string) would mismatch the
+		// framework provider's map(object) type at runtime. Drop it: it's optional, so the
+		// provider just receives null. ponytail: drops monitor_v2
+		// notification_settings.connected_app_params (per-connected-app channel overrides);
+		// add proper support if users need per-app routing (tracked separately).
+		if nestingMode == "map" {
+			delete(attrs, name)
+			continue
+		}
+
 		inner := map[string]any{}
 		if innerAttrs, ok := nt["attributes"].(map[string]any); ok {
 			inner["attributes"] = innerAttrs
@@ -138,6 +149,15 @@ func liftBlock(block any) {
 		}
 		blockTypes[name] = bt
 		delete(attrs, name)
+	}
+
+	// Recurse into pre-existing block_types so nested attributes inside them (e.g.
+	// monitor_v2's notification_settings, which the schema already encodes as a block) are
+	// lifted/dropped too — the loop above only walks top-level attributes.
+	for _, bt := range blockTypes {
+		if btMap, ok := bt.(map[string]any); ok {
+			liftBlock(btMap["block"])
+		}
 	}
 
 	if len(blockTypes) > 0 {
