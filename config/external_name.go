@@ -9,7 +9,7 @@ import "github.com/crossplane/upjet/pkg/config"
 // Terraform "id" field, so they all use IdentifierFromProvider: the external name is
 // whatever the provider assigns on create, and no name field is sent on the request.
 var ExternalNameConfigs = map[string]config.ExternalName{
-	"groundcover_monitor_v2":         config.IdentifierFromProvider,
+	"groundcover_monitor_v2_json":    config.IdentifierFromProvider,
 	"groundcover_dashboard":          config.IdentifierFromProvider,
 	"groundcover_connected_app_json": config.IdentifierFromProvider,
 	"groundcover_notification_route": config.IdentifierFromProvider,
