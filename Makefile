@@ -11,7 +11,7 @@
 
 TERRAFORM_PROVIDER_SOURCE        ?= groundcover-com/groundcover
 TERRAFORM_PROVIDER_REPO          ?= https://github.com/groundcover-com/terraform-provider-groundcover
-TERRAFORM_PROVIDER_VERSION       ?= 1.14.1
+TERRAFORM_PROVIDER_VERSION       ?= 1.17.0
 TERRAFORM_PROVIDER_DOWNLOAD_NAME ?= terraform-provider-groundcover
 
 PROVIDER_SCHEMA ?= config/schema.json
@@ -48,7 +48,10 @@ schema: ## Produce config/schema.json from the Terraform provider (requires terr
 	@mkdir -p .cache/schema
 	@printf 'terraform {\n  required_providers {\n    groundcover = {\n      source  = "%s"\n      version = "%s"\n    }\n  }\n}\n' \
 		"$(TERRAFORM_PROVIDER_SOURCE)" "$(TERRAFORM_PROVIDER_VERSION)" > .cache/schema/main.tf
-	cd .cache/schema && terraform init -upgrade >/dev/null && terraform providers schema -json > ../../$(PROVIDER_SCHEMA)
+	@# Ignore any dev_overrides in the developer's ~/.terraformrc, which would silently
+	@# serve a local provider build instead of the pinned registry version and drift the schema.
+	@printf 'provider_installation {\n  direct {}\n}\n' > .cache/schema/cli.tfrc
+	cd .cache/schema && TF_CLI_CONFIG_FILE=cli.tfrc terraform init -upgrade >/dev/null && TF_CLI_CONFIG_FILE=cli.tfrc terraform providers schema -json > ../../$(PROVIDER_SCHEMA)
 	@echo ">> wrote $(PROVIDER_SCHEMA)"
 
 .PHONY: generate

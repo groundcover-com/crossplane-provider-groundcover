@@ -13,9 +13,10 @@ It's generated from the [groundcover Terraform provider](https://github.com/grou
 with [upjet](https://github.com/crossplane/upjet), so it talks to the exact same API and
 reuses the same drift handling — you just drive it the GitOps/Crossplane way.
 
-> **Already using the groundcover Terraform provider?** The YAML from your
-> `groundcover_monitor.monitor_yaml` works unchanged as `monitorYaml` here — no rewriting.
-> See [Coming from Terraform](#coming-from-terraform) for the full mapping.
+> **Coming from the groundcover Terraform provider?** Resource shapes mirror the Terraform
+> resources. Monitors use the **typed** `groundcover_monitor_v2` schema (the legacy
+> YAML-blob `groundcover_monitor` is not exposed). See
+> [Coming from Terraform](#coming-from-terraform) for the full mapping.
 
 ## Prerequisites
 
@@ -38,7 +39,7 @@ kubectl apply -f examples/providerconfig.yaml
 
 # 3. Create a monitor
 kubectl apply -f examples/monitor.yaml
-kubectl get monitor pod-crash-looping        # SYNCED=True, READY=True once created
+kubectl get monitor gcql-logs-error-count    # SYNCED=True, READY=True once created
 ```
 
 Edit a manifest and re-apply to update; `kubectl delete` removes the resource from groundcover.
@@ -47,7 +48,7 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 
 | Resource | Example | Notes |
 |---|---|---|
-| Monitor | [`examples/monitor.yaml`](./examples/monitor.yaml) | `monitorYaml` = the same YAML as `groundcover_monitor.monitor_yaml` |
+| Monitor | [`examples/monitor.yaml`](./examples/monitor.yaml) | typed v2 fields (title, severity, query, threshold, …); `kubectl explain monitor.spec.forProvider` |
 | Dashboard | [`examples/dashboard.yaml`](./examples/dashboard.yaml) | `kubectl explain dashboard.spec.forProvider` for the schema |
 | ConnectedAppJson | [`examples/connectedappjson.yaml`](./examples/connectedappjson.yaml) | sensitive `data` supplied via a Secret reference |
 | NotificationRoute | [`examples/notificationroute.yaml`](./examples/notificationroute.yaml) | routes issues to connected apps by status; references a connected-app id |
@@ -60,7 +61,7 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 
 | groundcover Terraform | This provider (Crossplane) |
 |---|---|
-| `groundcover_monitor` (`monitor_yaml`) | `kind: Monitor` (`spec.forProvider.monitorYaml`) |
+| `groundcover_monitor_v2` (typed) | `kind: Monitor` (typed `spec.forProvider`) |
 | `groundcover_dashboard` | `kind: Dashboard` |
 | `groundcover_connected_app` (`data = { ... }`) | `kind: ConnectedAppJson` (`data` as JSON, via `dataSecretRef`) |
 | `groundcover_notification_route` | `kind: NotificationRoute` |
@@ -72,8 +73,8 @@ dynamic-object form Terraform uses). Everything else is the same shape.
 ## How drift is handled
 
 No custom drift logic in this repo. upjet runs the groundcover provider's own `Read` on
-every reconcile, so the existing suppression (monitor/dashboard YAML normalization,
-connected-app `data_hash`) applies unchanged — no perpetual diffs.
+every reconcile, so the existing suppression (dashboard YAML normalization, connected-app
+`data_hash`) applies unchanged — no perpetual diffs.
 
 ## Publishing
 
