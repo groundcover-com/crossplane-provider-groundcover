@@ -16,6 +16,7 @@ var ExternalNameConfigs = map[string]config.ExternalName{
 	"groundcover_apikey":             config.IdentifierFromProvider,
 	"groundcover_ingestionkey":       config.IdentifierFromProvider,
 	"groundcover_serviceaccount":     config.IdentifierFromProvider,
+	"groundcover_policy":             config.IdentifierFromProvider,
 	"groundcover_secret":             config.IdentifierFromProvider,
 	"groundcover_silence":            config.IdentifierFromProvider,
 	"groundcover_dataintegration":    config.IdentifierFromProvider,

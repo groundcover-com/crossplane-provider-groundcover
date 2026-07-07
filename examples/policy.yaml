@@ -1,0 +1,26 @@
+# An RBAC policy: grants a role and (optionally) scopes which data it can access.
+# The role map key is the access level (read | write | admin); the value is unused by
+# the backend — pass any non-empty string. dataScope is required on create: use either
+# `simple` (one rule set for all data types) or `advanced` (per-data-type rules), not both.
+# conditions/filters are lists; everything under dataScope is an object.
+apiVersion: rbac.groundcover.com/v1alpha1
+kind: Policy
+metadata:
+  name: read-only-prod
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: read-only-prod
+    role:
+      read: read
+    dataScope:
+      simple:
+        operator: and
+        conditions:
+          - key: env
+            origin: root
+            type: string
+            filters:
+              - op: match
+                value: production
