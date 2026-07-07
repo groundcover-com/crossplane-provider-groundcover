@@ -23,14 +23,13 @@ Source of truth for what's configured: `config/*/config.go` (each calls
 | 15 | `groundcover_secret` | ✅ | `secrets.Secret` |
 | 16 | `groundcover_serviceaccount` | ✅ | `rbac.ServiceAccount` |
 | 17 | `groundcover_silence` | ✅ | `monitoring.Silence` |
-| 18 | `groundcover_synthetic_test` | ❌ **gap** | not configured, no `_json` alternative |
+| 18 | `groundcover_synthetic_test` | ✅ | `monitoring.SyntheticTest` (requires tf-provider ≥ v1.17.1) |
 | 19 | `groundcover_tracespipeline` | ✅ | `pipelines.TracesPipeline` |
 
 Legend: ✅ supported · ⚪️ covered by `_json` variant · 🚫 deliberately excluded · ❌ genuine gap
 
-**Summary:** 15/19 supported. The only genuine gap is `groundcover_synthetic_test`.
-`connected_app` and `monitor_v2` are intentionally served by their `_json` twins;
-`monitor` is a deliberate exclusion.
+**Summary:** 16/19 supported, no genuine gaps. `connected_app` and `monitor_v2` are
+intentionally served by their `_json` twins; `monitor` is a deliberate exclusion.
 
 ## Adding a resource
 

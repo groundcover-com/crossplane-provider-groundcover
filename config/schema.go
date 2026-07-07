@@ -165,6 +165,86 @@ func liftBlock(block any) {
 	}
 }
 
+// stripSensitiveInBlocks removes the "sensitive" flag from attributes nested inside the
+// block_types of the named resources.
+//
+// Such fields (e.g. synthetic_test's http_check.auth.password/token) are
+// terraform-plugin-framework Sensitive strings, so upjet maps them to k8s
+// SecretKeySelectors and generates connection-detail paths with list wildcards
+// (http_check[*].auth[*].password). But single-nesting blocks are embedded objects
+// (SetEmbeddedObject) — not lists — so that wildcard expansion fails at runtime with
+// "not an object", and the block MUST stay embedded or the framework object type breaks.
+// groundcover natively accepts inline `secretRef::store::<id>` strings for these fields,
+// so a plain string param is the correct shape. Only nested-block attributes are touched;
+// top-level sensitive fields (e.g. secret values) are left alone.
+func stripSensitiveInBlocks(schema []byte, resources ...string) []byte {
+	var doc map[string]any
+	if err := json.Unmarshal(schema, &doc); err != nil {
+		panic("parse provider schema JSON: " + err.Error())
+	}
+	want := map[string]bool{}
+	for _, r := range resources {
+		want[r] = true
+	}
+
+	providerSchemas, _ := doc["provider_schemas"].(map[string]any)
+	for _, ps := range providerSchemas {
+		psMap, ok := ps.(map[string]any)
+		if !ok {
+			continue
+		}
+		schemas, ok := psMap["resource_schemas"].(map[string]any)
+		if !ok {
+			continue
+		}
+		for name, rs := range schemas {
+			if !want[name] {
+				continue
+			}
+			if rsMap, ok := rs.(map[string]any); ok {
+				desensitizeBlockTypes(rsMap["block"])
+			}
+		}
+	}
+
+	out, err := json.Marshal(doc)
+	if err != nil {
+		panic("re-marshal provider schema JSON: " + err.Error())
+	}
+	return out
+}
+
+// desensitizeBlockTypes recurses only into block_types (not top-level attributes) and
+// deletes the "sensitive" flag from every attribute it finds along the way.
+func desensitizeBlockTypes(block any) {
+	b, ok := block.(map[string]any)
+	if !ok {
+		return
+	}
+	blockTypes, ok := b["block_types"].(map[string]any)
+	if !ok {
+		return
+	}
+	for _, bt := range blockTypes {
+		btMap, ok := bt.(map[string]any)
+		if !ok {
+			continue
+		}
+		inner, ok := btMap["block"].(map[string]any)
+		if !ok {
+			continue
+		}
+		if attrs, ok := inner["attributes"].(map[string]any); ok {
+			for _, attr := range attrs {
+				if am, ok := attr.(map[string]any); ok {
+					delete(am, "sensitive")
+				}
+			}
+		}
+		desensitizeBlockTypes(inner)
+	}
+}
+
 func coerceBlock(block any) {
 	b, ok := block.(map[string]any)
 	if !ok {
