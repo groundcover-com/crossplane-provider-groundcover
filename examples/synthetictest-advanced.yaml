@@ -1,0 +1,54 @@
+# An advanced synthetic test: an authenticated HTTP POST check with assertions, retries,
+# and a monitor that alerts on failure. Check blocks (httpCheck, and its auth/body),
+# retry, and monitor/evaluationInterval are objects; assertion is a list.
+# The auth token accepts an inline `secretRef::store::<id>` reference.
+apiVersion: monitoring.groundcover.com/v1alpha1
+kind: SyntheticTest
+metadata:
+  name: advanced-api-check
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: advanced-api-check
+    interval: 1m
+    enabled: true
+    labels:
+      env: production
+      team: platform
+    httpCheck:
+      url: https://api.example.com/health
+      method: POST
+      timeout: 10s
+      followRedirects: true
+      headers:
+        Content-Type: application/json
+      body:
+        type: json
+        content: '{"probe":"synthetic"}'
+      auth:
+        type: bearer
+        token: secretRef::store::your-secret-id
+    assertion:
+      - source: statusCode
+        operator: eq
+        target: "200"
+        severity: critical
+      - source: responseTime
+        operator: lt
+        target: "5000"
+        severity: degraded
+    retry:
+      count: 3
+      interval: 500ms
+    monitor:
+      monitorName: API Health Monitor
+      severity: S1
+      issueSummary: "Synthetic check failed: {{ name }}"
+      issueDescription: "The synthetic test {{ name }} is failing. Check the endpoint health."
+      noDataState: Alerting
+      executionErrorState: Alerting
+      renotificationInterval: 1h
+      evaluationInterval:
+        interval: 1m
+        pendingFor: 0s
