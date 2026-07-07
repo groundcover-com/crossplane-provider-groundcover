@@ -44,16 +44,16 @@ spec:
               filters:
                 - op: match
                   value: production-cluster
-        # Traces: restrict to a specific service.
+        # Traces: restrict to a specific namespace.
         traces:
           operator: and
           conditions:
-            - key: service
+            - key: namespace
               origin: root
               type: string
               filters:
                 - op: match
-                  value: payment-service
+                  value: payments
         # Events: exclude the kube-system namespace.
         events:
           operator: and
