@@ -1,0 +1,82 @@
+# An RBAC policy with an advanced data scope: per-data-type filtering rules for
+# fine-grained access control. Use dataScope.advanced (not simple) to scope logs,
+# metrics, traces, events, and workloads independently. Each data type is an object;
+# conditions and filters are lists.
+apiVersion: rbac.groundcover.com/v1alpha1
+kind: Policy
+metadata:
+  name: advanced-policy-example
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: advanced-policy-example
+    description: Demonstrates advanced data scope with per-data-type filtering.
+    # Optional: SSO claim role for mapping.
+    claimRole: sso-developer-role
+    role:
+      read: read
+    dataScope:
+      advanced:
+        # Logs: restrict to specific namespaces.
+        logs:
+          operator: or
+          conditions:
+            - key: namespace
+              origin: root
+              type: string
+              filters:
+                - op: match
+                  value: app-backend
+            - key: namespace
+              origin: root
+              type: string
+              filters:
+                - op: match
+                  value: app-frontend
+        # Metrics: restrict to the production cluster.
+        metrics:
+          operator: and
+          conditions:
+            - key: cluster
+              origin: root
+              type: string
+              filters:
+                - op: match
+                  value: production-cluster
+        # Traces: restrict to a specific namespace.
+        traces:
+          operator: and
+          conditions:
+            - key: namespace
+              origin: root
+              type: string
+              filters:
+                - op: match
+                  value: payments
+        # Events: exclude the kube-system namespace.
+        events:
+          operator: and
+          conditions:
+            - key: namespace
+              origin: root
+              type: string
+              filters:
+                - op: not_match
+                  value: kube-system
+        # Workloads: allow dev and staging environments.
+        workloads:
+          operator: or
+          conditions:
+            - key: environment
+              origin: root
+              type: string
+              filters:
+                - op: match
+                  value: dev
+            - key: environment
+              origin: root
+              type: string
+              filters:
+                - op: match
+                  value: staging

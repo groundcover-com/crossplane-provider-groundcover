@@ -15,9 +15,11 @@ import (
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/metricspipeline"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/monitor"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/notificationroute"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/policy"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/secret"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/serviceaccount"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/silence"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/synthetictest"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/tracespipeline"
 )
 
@@ -41,7 +43,7 @@ const (
 // empty. The include list is scoped to the configured resources via ExternalNameConfigured.
 func GetProvider() *config.Provider {
 	pc := config.NewProvider(
-		liftNestedAttributesToBlocks(coerceDynamicAttributesToString(schemaJSON)),
+		liftNestedAttributesToBlocks(stripSensitiveInBlocks(coerceDynamicAttributesToString(schemaJSON), "groundcover_synthetic_test")),
 		resourcePrefix,
 		modulePath,
 		nil,
@@ -66,8 +68,10 @@ func GetProvider() *config.Provider {
 		apikey.Configure,
 		ingestionkey.Configure,
 		serviceaccount.Configure,
+		policy.Configure,
 		secret.Configure,
 		silence.Configure,
+		synthetictest.Configure,
 		dataintegration.Configure,
 		logspipeline.Configure,
 		metricspipeline.Configure,

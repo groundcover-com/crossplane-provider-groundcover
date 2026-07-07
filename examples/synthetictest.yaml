@@ -1,0 +1,18 @@
+# A synthetic test: periodic active check against an endpoint. This one runs an HTTP
+# check every minute. Exactly one check block (httpCheck / sslCheck / tcpCheck / dnsCheck)
+# defines what to probe; assertions are an optional list. Check blocks are objects.
+apiVersion: monitoring.groundcover.com/v1alpha1
+kind: SyntheticTest
+metadata:
+  name: example-http-check
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: example-http-check
+    interval: 1m
+    enabled: true
+    httpCheck:
+      url: https://example.com
+      method: GET
+      timeout: 10s
