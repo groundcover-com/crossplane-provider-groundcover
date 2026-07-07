@@ -165,18 +165,11 @@ func liftBlock(block any) {
 	}
 }
 
-// stripSensitiveInBlocks removes the "sensitive" flag from attributes nested inside the
-// block_types of the named resources.
-//
-// Such fields (e.g. synthetic_test's http_check.auth.password/token) are
-// terraform-plugin-framework Sensitive strings, so upjet maps them to k8s
-// SecretKeySelectors and generates connection-detail paths with list wildcards
-// (http_check[*].auth[*].password). But single-nesting blocks are embedded objects
-// (SetEmbeddedObject) — not lists — so that wildcard expansion fails at runtime with
-// "not an object", and the block MUST stay embedded or the framework object type breaks.
-// groundcover natively accepts inline `secretRef::store::<id>` strings for these fields,
-// so a plain string param is the correct shape. Only nested-block attributes are touched;
-// top-level sensitive fields (e.g. secret values) are left alone.
+// stripSensitiveInBlocks drops the "sensitive" flag from attributes nested in the named
+// resources' blocks. upjet would map them to SecretKeySelectors with list-wildcard
+// connection-detail paths (e.g. http_check[*].auth[*].password) that can't expand against
+// our embedded objects (SetEmbeddedObject) — and the blocks must stay embedded. groundcover
+// accepts inline secretRef:: strings for these fields anyway. Top-level sensitive fields untouched.
 func stripSensitiveInBlocks(schema []byte, resources ...string) []byte {
 	var doc map[string]any
 	if err := json.Unmarshal(schema, &doc); err != nil {
