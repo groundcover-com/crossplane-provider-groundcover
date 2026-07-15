@@ -16,7 +16,7 @@ spec:
     timezone: Asia/Jerusalem
     enabled: true
     matchers:
-      - name: alertname
+      - name: monitor_name
         value: "Deployment Not Ready"
         isEqual: true
         isContains: false
