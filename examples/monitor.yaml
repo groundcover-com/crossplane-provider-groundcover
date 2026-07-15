@@ -36,6 +36,21 @@ spec:
       method: connectedApps
       connectedApps:
         - slack-connected-app-id
+      # Per-connected-app delivery options, keyed by connected app ID, as a JSON string
+      # (upjet cannot model the nested map, so it is passed as JSON). Each entry takes
+      # `channels` ([{id (required), name}]) plus optional Linear fields: team_id,
+      # assignee_id, delegate_id, project_id, resolved_status_id, label_ids ([]string),
+      # and auto_resolve (bool).
+      connectedAppParams: |
+        {
+          "slack-connected-app-id": {
+            "channels": [{ "id": "C0123456789", "name": "#alerts" }],
+            "team_id": "linear-team-id",
+            "assignee_id": "linear-user-id",
+            "label_ids": ["linear-label-id"],
+            "auto_resolve": true
+          }
+        }
       statusFilters:
         - Alerting
         - Resolved
