@@ -1,0 +1,18 @@
+# An organizational groundcover Agent Skill: reusable guidance the Agent applies when the
+# `whenToUse` condition matches. Managing organizational skills requires an admin service
+# account (see the ProviderConfig credentials).
+apiVersion: agent.groundcover.com/v1alpha1
+kind: Skill
+metadata:
+  name: example-skill
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    name: incident-triage
+    description: "First-response triage guidance for on-call engineers."
+    whenToUse: "Use when an alert fires and the on-call needs a first-response checklist."
+    instructions: |
+      1. Open the linked dashboard for the affected service.
+      2. Confirm blast radius via the service map.
+      3. If customer-facing, page the incident commander.

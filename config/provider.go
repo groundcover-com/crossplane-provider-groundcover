@@ -16,9 +16,10 @@ import (
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/monitor"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/notificationroute"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/policy"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/recurringsilence"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/secret"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/serviceaccount"
-	"github.com/groundcover-com/crossplane-provider-groundcover/config/silence"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/skill"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/synthetictest"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/tracespipeline"
 )
@@ -70,7 +71,8 @@ func GetProvider() *config.Provider {
 		serviceaccount.Configure,
 		policy.Configure,
 		secret.Configure,
-		silence.Configure,
+		recurringsilence.Configure,
+		skill.Configure,
 		synthetictest.Configure,
 		dataintegration.Configure,
 		logspipeline.Configure,

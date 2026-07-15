@@ -7,7 +7,7 @@ require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/crossplane/crossplane-runtime v1.20.0-rc.0.0.20250509113121-26da25aff65f
 	github.com/crossplane/upjet v1.11.0
-	github.com/groundcover-com/terraform-provider-groundcover v1.17.1
+	github.com/groundcover-com/terraform-provider-groundcover v1.18.0
 	github.com/pkg/errors v0.9.1
 	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.3
@@ -56,7 +56,7 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/groundcover-com/groundcover-sdk-go v1.320.0 // indirect
+	github.com/groundcover-com/groundcover-sdk-go v1.345.0 // indirect
 	github.com/hashicorp/go-cty v1.5.0 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-plugin v1.7.0 // indirect
