@@ -18,7 +18,7 @@ var ExternalNameConfigs = map[string]config.ExternalName{
 	"groundcover_serviceaccount":     config.IdentifierFromProvider,
 	"groundcover_policy":             config.IdentifierFromProvider,
 	"groundcover_secret":             config.IdentifierFromProvider,
-	"groundcover_silence":            config.IdentifierFromProvider,
+	"groundcover_recurring_silence":  config.IdentifierFromProvider,
 	"groundcover_synthetic_test":     config.IdentifierFromProvider,
 	"groundcover_dataintegration":    config.IdentifierFromProvider,
 	"groundcover_logspipeline":       config.IdentifierFromProvider,

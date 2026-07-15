@@ -1,0 +1,29 @@
+# A recurring silence repeatedly suppresses matching alerts on a schedule, rather than
+# for a single fixed window (use groundcover_silence / Silence for a one-off). The
+# recurrenceType (daily/weekly/monthly) determines the valid timeframe day keys:
+# daily -> every_day, weekly -> lowercase weekday names, monthly -> day-of-month strings.
+# Times are 24-hour HH:MM, evaluated in the given IANA timezone.
+apiVersion: monitoring.groundcover.com/v1alpha1
+kind: RecurringSilence
+metadata:
+  name: example-recurring-silence
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    comment: "Mute deploy alerts during weekly maintenance windows"
+    recurrenceType: weekly
+    timezone: Asia/Jerusalem
+    enabled: true
+    matchers:
+      - name: alertname
+        value: "Deployment Not Ready"
+        isEqual: true
+        isContains: false
+    timeframes:
+      - day: monday
+        startTime: "09:00"
+        endTime: "17:00"
+      - day: wednesday
+        startTime: "22:00"
+        endTime: "23:30"
