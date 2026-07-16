@@ -23,6 +23,8 @@ spec:
       dataType: logs
       expression: "level:error | stats count() count_all_result"
       instantRollup: 5m
+      # Optional: delay evaluation to let late-arriving data settle (0s-1h, whole seconds).
+      evaluationDelay: 15m
     threshold:
       - name: threshold_1
         inputName: threshold_input_query
