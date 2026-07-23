@@ -7,7 +7,7 @@ require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/crossplane/crossplane-runtime v1.20.0-rc.0.0.20250509113121-26da25aff65f
 	github.com/crossplane/upjet v1.11.0
-	github.com/groundcover-com/terraform-provider-groundcover v1.20.0
+	github.com/groundcover-com/terraform-provider-groundcover v1.21.0
 	github.com/pkg/errors v0.9.1
 	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.3

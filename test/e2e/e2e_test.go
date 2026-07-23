@@ -40,6 +40,7 @@ var (
 	secretGVK = schema.GroupVersionKind{Version: "v1", Kind: "Secret"}
 	caGVK     = schema.GroupVersionKind{Group: "integrations.groundcover.com", Version: "v1alpha1", Kind: "ConnectedAppJson"}
 	nrGVK     = schema.GroupVersionKind{Group: "notifications.groundcover.com", Version: "v1alpha1", Kind: "NotificationRoute"}
+	policyGVK = schema.GroupVersionKind{Group: "rbac.groundcover.com", Version: "v1alpha1", Kind: "Policy"}
 )
 
 // TestNotificationRouteLifecycle creates a ConnectedAppJson, references it from a
@@ -140,6 +141,63 @@ func TestNotificationRouteLifecycle(t *testing.T) {
 	t.Logf("update OK: field applied and re-converged, no drift after update")
 
 	t.Log("E2E OK: ConnectedAppJson + NotificationRoute create, update, no drift")
+}
+
+// TestPolicyNoDataScopeLifecycle creates a Policy that omits dataScope — the exact case a
+// customer hit (BE-2586) — and asserts it reaches Ready/Synced and does not drift. It guards
+// two things that only show up against a live backend:
+//   - the provider (TF v1.21.0+) accepts an omitted dataScope and creates an allow-all policy,
+//     instead of erroring on create;
+//   - no perpetual diff: an omitted dataScope must round-trip cleanly even though the backend
+//     may echo back a populated allow-all scope. That mismatch is the classic upjet failure and
+//     Synced=True alone doesn't catch it, so we count UpdatedExternalResource events across the
+//     settle window (same technique as the NotificationRoute test).
+//
+// The CRD-admission half of the fix (dropping the "dataScope is a required parameter" CEL rule)
+// is what lets this manifest be created at all; this test is the runtime half.
+func TestPolicyNoDataScopeLifecycle(t *testing.T) {
+	ctx := context.Background()
+	cl := newClient(t)
+
+	name := "e2e-ci-policy-" + runID()
+
+	// Policy WITHOUT dataScope (cluster-scoped managed resource). role map key must be one of
+	// read/write/admin; the value is unused by the backend.
+	pol := newObject(policyGVK, name)
+	pol.Object["spec"] = map[string]any{
+		"providerConfigRef": map[string]any{"name": "default"},
+		"forProvider": map[string]any{
+			"name":        name,
+			"description": "e2e policy without dataScope (allow all)",
+			"claimRole":   name + "-claim",
+			"role":        map[string]any{"admin": "admin"},
+		},
+	}
+	create(ctx, t, cl, pol)
+	t.Cleanup(func() { deleteAndWait(t, cl, policyGVK, name) })
+
+	// Reaching Ready proves the backend accepted the create with no dataScope (allow-all).
+	waitCondition(ctx, t, cl, policyGVK, name, "Ready")
+
+	// No drift: an omitted dataScope must not produce a perpetual diff against whatever scope
+	// the backend returns. Count update events across the settle window (see NotificationRoute
+	// test for why Synced=True is insufficient).
+	pol2, err := get(ctx, cl, policyGVK, name)
+	if err != nil {
+		t.Fatalf("get %s/%s: %v", policyGVK.Kind, name, err)
+	}
+	before := countUpdateEvents(ctx, t, cl, pol2)
+	time.Sleep(settleWindow)
+	after := countUpdateEvents(ctx, t, cl, pol2)
+
+	if !conditionTrue(ctx, t, cl, policyGVK, name, "Synced") {
+		t.Fatal("Policy is not Synced after settling")
+	}
+	if after > before {
+		t.Fatalf("Policy drifted: %d UpdatedExternalResource event(s) during %s settle window (perpetual diff on omitted dataScope)", after-before, settleWindow)
+	}
+
+	t.Log("E2E OK: Policy without dataScope create, Ready, Synced, no drift (allow-all)")
 }
 
 func runID() string {
