@@ -1,0 +1,25 @@
+# Manages the storage management (retention) policy of one data type. inCloud backends
+# only. Policies are seeded by groundcover and can only be updated, never created or
+# deleted: the first reconcile adopts the existing policy and reconciles it to this spec,
+# and deleting the resource only stops managing it — the policy stays active as-is.
+#
+# The full policy is replaced on every update. A custom rule that exists in groundcover
+# but is not declared here is archived, and archived rule names can never be reused —
+# declare every rule you want to keep. If customRules is omitted entirely, the existing
+# rules are adopted into the spec (late-initialized) instead of archived; the same applies
+# to coldMoveDuration.
+apiVersion: storage.groundcover.com/v1alpha1
+kind: StorageManagementPolicy
+metadata:
+  name: logs-retention
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    dataType: logs
+    retention: 30d
+    coldMoveDuration: 7d
+    customRules:
+      - name: debug-logs
+        retention: 3d
+        filters: "level = 'debug'"
