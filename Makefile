@@ -11,7 +11,7 @@
 
 TERRAFORM_PROVIDER_SOURCE        ?= groundcover-com/groundcover
 TERRAFORM_PROVIDER_REPO          ?= https://github.com/groundcover-com/terraform-provider-groundcover
-TERRAFORM_PROVIDER_VERSION       ?= 1.21.0
+TERRAFORM_PROVIDER_VERSION       ?= 1.22.1
 TERRAFORM_PROVIDER_DOWNLOAD_NAME ?= terraform-provider-groundcover
 
 PROVIDER_SCHEMA ?= config/schema.json

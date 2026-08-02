@@ -20,6 +20,7 @@ import (
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/secret"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/serviceaccount"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/skill"
+	"github.com/groundcover-com/crossplane-provider-groundcover/config/storagemanagementpolicy"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/synthetictest"
 	"github.com/groundcover-com/crossplane-provider-groundcover/config/tracespipeline"
 )
@@ -79,6 +80,7 @@ func GetProvider() *config.Provider {
 		metricspipeline.Configure,
 		tracespipeline.Configure,
 		metricsaggregation.Configure,
+		storagemanagementpolicy.Configure,
 	} {
 		configure(pc)
 	}

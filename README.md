@@ -65,6 +65,7 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 | `groundcover_dashboard` | `kind: Dashboard` |
 | `groundcover_connected_app` (`data = { ... }`) | `kind: ConnectedAppJson` (`data` as JSON, via `dataSecretRef`) |
 | `groundcover_notification_route` | `kind: NotificationRoute` |
+| `groundcover_storage_management_policy` | `kind: StorageManagementPolicy` (adopts the seeded policy; delete only stops managing it) |
 | `provider "groundcover" { api_key, backend_id }` | `ProviderConfig` + a credentials `Secret` |
 
 The connected-app `data` is a JSON string here (Crossplane/upjet can't represent the
