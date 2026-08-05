@@ -18,7 +18,7 @@ metadata:
     meta.crossplane.io/readme: |
       Manage groundcover resources — monitors, dashboards, connected apps, data integrations,
       and notification routes — directly from Kubernetes with Crossplane. Write Kubernetes
-      manifests (kind: Monitor, Dashboard, ConnectedApp, DataIntegration, NotificationRoute)
+      manifests (kind: Monitor, Dashboard, ConnectedAppJson, DataIntegration, NotificationRoute)
       and Crossplane continuously reconciles them against the groundcover API.
 
       Getting started: install this provider, create a ProviderConfig with your groundcover

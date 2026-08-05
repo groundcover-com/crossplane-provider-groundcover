@@ -1,6 +1,9 @@
 # Consolidated AWS data integration. A single integration configures the AWS account
 # once and enables one or more capability blocks: vpc, dynamodb, and rds.
 #
+# An empty selector list (subnetIds, tableNames, dbInstanceIdentifiers) collects every
+# matching resource in the configured regions instead of filtering to specific ones.
+#
 # Required IAM permissions:
 #   vpc      - ec2:DescribeSubnets
 #   dynamodb - dynamodb:ListTables, dynamodb:DescribeTable
