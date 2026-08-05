@@ -35,6 +35,20 @@ var storageManagementPolicyExternalName = config.ExternalName{
 	DisableNameInitializer: true,
 }
 
+var dataIntegrationExternalName = config.NewExternalNameFrom(
+	config.IdentifierFromProvider,
+	config.WithGetIDFn(func(fn config.GetIDFn, ctx context.Context, externalName string, parameters map[string]any, terraformProviderConfig map[string]any) (string, error) {
+		if externalName != "" {
+			return fn(ctx, externalName, parameters, terraformProviderConfig)
+		}
+		integrationType, _ := parameters["type"].(string)
+		if integrationType == "" {
+			integrationType = "aws"
+		}
+		return integrationType + ":00000000-0000-0000-0000-000000000000", nil
+	}),
+)
+
 // ExternalNameConfigs maps each Terraform resource to its external-name handling.
 // groundcover resources are identified by a server-assigned UUID returned in the
 // Terraform "id" field, so they all use IdentifierFromProvider: the external name is
@@ -53,7 +67,7 @@ var ExternalNameConfigs = map[string]config.ExternalName{
 	"groundcover_recurring_silence":  config.IdentifierFromProvider,
 	"groundcover_skill":              config.IdentifierFromProvider,
 	"groundcover_synthetic_test":     config.IdentifierFromProvider,
-	"groundcover_dataintegration":    config.IdentifierFromProvider,
+	"groundcover_dataintegration":    dataIntegrationExternalName,
 	"groundcover_logspipeline":       config.IdentifierFromProvider,
 	"groundcover_metricspipeline":    config.IdentifierFromProvider,
 	"groundcover_tracespipeline":     config.IdentifierFromProvider,

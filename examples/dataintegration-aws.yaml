@@ -1,0 +1,47 @@
+# Consolidated AWS data integration. A single integration configures the AWS account
+# once and enables one or more capability blocks: vpc, dynamodb, and rds.
+#
+# An empty selector list (subnetIds, tableNames, dbInstanceIdentifiers) collects every
+# matching resource in the configured regions instead of filtering to specific ones.
+#
+# Required IAM permissions:
+#   vpc      - ec2:DescribeSubnets
+#   dynamodb - dynamodb:ListTables, dynamodb:DescribeTable
+#   rds      - rds:DescribeDBInstances, logs:GetLogEvents
+apiVersion: integrations.groundcover.com/v1alpha1
+kind: DataIntegration
+metadata:
+  name: prod-aws
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    type: aws
+    isPaused: false
+    config: |
+      {
+        "version": 1,
+        "name": "prod-aws",
+        "enabled": true,
+        "regions": ["us-east-1", "eu-west-1"],
+        "roleArn": "arn:aws:iam::123456789012:role/groundcover",
+        "stsRegion": "us-east-1",
+        "scrapeInterval": "5m",
+        "labelSettings": {
+          "extraLabels": {
+            "env": "prod"
+          }
+        },
+        "vpc": {
+          "enabled": true,
+          "subnetIds": []
+        },
+        "dynamodb": {
+          "enabled": true,
+          "tableNames": []
+        },
+        "rds": {
+          "enabled": true,
+          "dbInstanceIdentifiers": []
+        }
+      }

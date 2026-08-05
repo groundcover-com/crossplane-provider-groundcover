@@ -1,5 +1,5 @@
 # Installs the groundcover Crossplane provider and registers its CRDs
-# (Monitor, Dashboard, ConnectedAppJson, NotificationRoute).
+# (Monitor, Dashboard, ConnectedAppJson, DataIntegration, NotificationRoute).
 #
 # NOTE: the package image is not published to a registry yet. Until then, build/run from
 # source — see DEVELOPING.md.

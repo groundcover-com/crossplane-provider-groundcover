@@ -5,7 +5,7 @@
 > [DEVELOPING.md](./DEVELOPING.md).
 
 Manage your [groundcover](https://groundcover.com) resources — **monitors, dashboards,
-connected apps, and notification routes** — directly from Kubernetes with
+connected apps, data integrations, and notification routes** — directly from Kubernetes with
 [Crossplane](https://crossplane.io), instead of Terraform. You write Kubernetes manifests
 (`kind: Monitor`, etc.); Crossplane continuously reconciles them against the groundcover API.
 
@@ -28,7 +28,7 @@ reuses the same drift handling — you just drive it the GitOps/Crossplane way.
 Runnable manifests live in [`examples/`](./examples). Apply them in order:
 
 ```bash
-# 1. Install the provider (registers the Monitor/Dashboard/ConnectedAppJson/NotificationRoute CRDs)
+# 1. Install the provider (registers the Monitor/Dashboard/ConnectedAppJson/DataIntegration/NotificationRoute CRDs)
 kubectl apply -f examples/provider.yaml
 kubectl wait provider/provider-groundcover --for=condition=Healthy --timeout=2m
 
@@ -51,6 +51,7 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 | Monitor | [`examples/monitor.yaml`](./examples/monitor.yaml) | typed v2 fields (title, severity, query, threshold, …); `kubectl explain monitor.spec.forProvider` |
 | Dashboard | [`examples/dashboard.yaml`](./examples/dashboard.yaml) | `kubectl explain dashboard.spec.forProvider` for the schema |
 | ConnectedAppJson | [`examples/connectedappjson.yaml`](./examples/connectedappjson.yaml) | sensitive `data` supplied via a Secret reference |
+| DataIntegration | [`examples/dataintegration-aws.yaml`](./examples/dataintegration-aws.yaml) | consolidated AWS integration with `vpc`, `dynamodb`, and `rds` capability blocks |
 | NotificationRoute | [`examples/notificationroute.yaml`](./examples/notificationroute.yaml) | routes issues to connected apps by status; references a connected-app id |
 | Install / config | [`examples/provider.yaml`](./examples/provider.yaml), [`examples/providerconfig.yaml`](./examples/providerconfig.yaml) | |
 
@@ -64,12 +65,27 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 | `groundcover_monitor_v2` (typed) | `kind: Monitor` (typed `spec.forProvider`) |
 | `groundcover_dashboard` | `kind: Dashboard` |
 | `groundcover_connected_app` (`data = { ... }`) | `kind: ConnectedAppJson` (`data` as JSON, via `dataSecretRef`) |
+| `groundcover_dataintegration` | `kind: DataIntegration` (`config` as JSON string) |
 | `groundcover_notification_route` | `kind: NotificationRoute` |
 | `groundcover_storage_management_policy` | `kind: StorageManagementPolicy` (adopts the seeded policy; delete only stops managing it) |
 | `provider "groundcover" { api_key, backend_id }` | `ProviderConfig` + a credentials `Secret` |
 
-The connected-app `data` is a JSON string here (Crossplane/upjet can't represent the
-dynamic-object form Terraform uses). Everything else is the same shape.
+The connected-app `data` and data-integration `config` are JSON strings here
+(Crossplane/upjet can't represent the dynamic-object form Terraform uses). Everything
+else is the same shape.
+
+## AWS data integration
+
+The consolidated AWS integration uses `kind: DataIntegration` with `type: aws`; its
+`config` field is the same JSON shape Terraform passes through `jsonencode(...)`. See
+[`examples/dataintegration-aws.yaml`](./examples/dataintegration-aws.yaml) for a full
+manifest that enables the `vpc`, `dynamodb`, and `rds` capability blocks.
+
+AWS account settings are integration-wide: put `regions`, `roleArn`, `stsRegion`, and
+`scrapeInterval` at the root of `config`, not inside a capability block. At least one
+capability block must be present and enabled, and empty objects such as `"vpc": {}` are
+treated as absent by the backend. To use different regions, accounts, roles, or scrape
+cadences per capability, create separate `DataIntegration` resources.
 
 ## How drift is handled
 
