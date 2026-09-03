@@ -1,0 +1,79 @@
+# PostgreSQL database monitoring.
+#
+# Before applying:
+#   1. Add pg_stat_statements to shared_preload_libraries and restart PostgreSQL.
+#   2. Run CREATE EXTENSION IF NOT EXISTS pg_stat_statements; in the monitored database.
+#   3. Run GRANT pg_monitor TO groundcover; for capability-sensitive health metrics.
+#   4. Enable track_io_timing for PostgreSQL I/O timing metrics.
+#
+# Built-in healthMetrics are collected as Prometheus metrics. pg_stat_statements rows
+# under tables are collected independently as query-performance traces. Optional
+# customMetricQueries remain supported but are intentionally omitted from this example.
+#
+# This example runs the integration in the groundcover cluster named production-cluster
+# so its password can use an existing Kubernetes Secret. Replace the cluster, namespace,
+# Secret name, and key as needed. For a backend-run integration, omit cluster and use a
+# secretRef::store::<id> password instead.
+apiVersion: integrations.groundcover.com/v1alpha1
+kind: DataIntegration
+metadata:
+  name: production-postgresql
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    type: postgresqldbm
+    cluster: production-cluster
+    isPaused: false
+    config: |
+      {
+        "version": 1,
+        "enabled": true,
+        "name": "production-postgresql",
+        "host": "postgresql.example.com",
+        "port": 5432,
+        "database": "postgres",
+        "secure": true,
+        "skipVerify": false,
+        "dialTimeout": "10s",
+        "queryTimeout": "30s",
+        "authentication": {
+          "basicAuth": {
+            "username": "postgres",
+            "password": "secretRef::k8s::groundcover::groundcover-postgresql::admin-password"
+          }
+        },
+        "labelSettings": {
+          "extraLabels": {
+            "environment": "production",
+            "team": "database-platform"
+          }
+        },
+        "interval": "1m",
+        "ignoreDatabases": ["template0", "template1", "rdsadmin"],
+        "healthMetrics": {
+          "enabled": true,
+          "groups": {
+            "connections": {"enabled": true},
+            "replication": {"enabled": true},
+            "standby": {"enabled": true},
+            "databaseStats": {"enabled": true},
+            "wraparound": {"enabled": true},
+            "databaseSize": {"enabled": true},
+            "conflicts": {"enabled": true},
+            "checkpoints": {"enabled": true},
+            "wal": {"enabled": true},
+            "archiver": {"enabled": true},
+            "io": {"enabled": true},
+            "instance": {"enabled": true},
+            "locks": {"enabled": true}
+          }
+        },
+        "tables": {
+          "pgStatStatements": {
+            "enabled": true,
+            "filterInserts": false,
+            "maxQueries": 200
+          }
+        }
+      }
