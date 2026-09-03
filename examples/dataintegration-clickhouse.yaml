@@ -1,0 +1,81 @@
+# ClickHouse database monitoring.
+#
+# The integration user needs SELECT on system.*. Cluster mode also requires:
+#   GRANT REMOTE ON *.* TO groundcover;
+#
+# Built-in healthMetrics are collected as Prometheus metrics. queryLog and
+# queryViewsLog under tables are collected independently as query-performance traces.
+# Optional customMetricQueries remain supported but are intentionally omitted here.
+# Capacity and events use curated defaults when their optional include lists are absent.
+#
+# This example runs the integration in the groundcover cluster named production-cluster
+# so its password can use an existing Kubernetes Secret. Replace the cluster, namespace,
+# Secret name, and key as needed. For a backend-run integration, omit cluster and use a
+# secretRef::store::<id> password instead.
+apiVersion: integrations.groundcover.com/v1alpha1
+kind: DataIntegration
+metadata:
+  name: production-clickhouse
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    type: clickhousedbm
+    cluster: production-cluster
+    isPaused: false
+    config: |
+      {
+        "version": 1,
+        "enabled": true,
+        "name": "production-clickhouse",
+        "host": "clickhouse.example.com",
+        "port": 9440,
+        "protocol": "native",
+        "database": "default",
+        "secure": true,
+        "skipVerify": false,
+        "dialTimeout": "10s",
+        "queryTimeout": "30s",
+        "authentication": {
+          "basicAuth": {
+            "username": "default",
+            "password": "secretRef::k8s::groundcover::groundcover-clickhouse::admin-password"
+          }
+        },
+        "clusterMode": true,
+        "clusterName": "default",
+        "labelSettings": {
+          "extraLabels": {
+            "environment": "production",
+            "team": "database-platform"
+          }
+        },
+        "interval": "1m",
+        "ignoreDatabases": ["system", "information_schema"],
+        "healthMetrics": {
+          "enabled": true,
+          "topN": 50,
+          "groups": {
+            "parts": {"enabled": true},
+            "merges": {"enabled": true},
+            "mutations": {"enabled": true},
+            "replication": {"enabled": true},
+            "connections": {"enabled": true},
+            "capacity": {"enabled": true},
+            "events": {"enabled": true},
+            "detachedParts": {"enabled": true},
+            "tableSizes": {"enabled": true},
+            "viewRefreshes": {"enabled": true},
+            "dictionaries": {"enabled": true}
+          }
+        },
+        "tables": {
+          "queryLog": {
+            "enabled": true,
+            "filterInserts": true
+          },
+          "queryViewsLog": {
+            "enabled": true
+          }
+        }
+      }

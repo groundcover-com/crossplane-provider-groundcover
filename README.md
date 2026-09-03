@@ -51,7 +51,7 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 | Monitor | [`examples/monitor.yaml`](./examples/monitor.yaml) | typed v2 fields (title, severity, query, threshold, …); `kubectl explain monitor.spec.forProvider` |
 | Dashboard | [`examples/dashboard.yaml`](./examples/dashboard.yaml) | `kubectl explain dashboard.spec.forProvider` for the schema |
 | ConnectedAppJson | [`examples/connectedappjson.yaml`](./examples/connectedappjson.yaml) | sensitive `data` supplied via a Secret reference |
-| DataIntegration | [`examples/dataintegration-aws.yaml`](./examples/dataintegration-aws.yaml) | consolidated AWS integration with `vpc`, `dynamodb`, and `rds` capability blocks |
+| DataIntegration | [`AWS`](./examples/dataintegration-aws.yaml), [`PostgreSQL DB monitoring`](./examples/dataintegration-postgresql.yaml), [`ClickHouse DB monitoring`](./examples/dataintegration-clickhouse.yaml) | AWS capability blocks and database health/query-statistics collection |
 | NotificationRoute | [`examples/notificationroute.yaml`](./examples/notificationroute.yaml) | routes issues to connected apps by status; references a connected-app id |
 | Install / config | [`examples/provider.yaml`](./examples/provider.yaml), [`examples/providerconfig.yaml`](./examples/providerconfig.yaml) | |
 
