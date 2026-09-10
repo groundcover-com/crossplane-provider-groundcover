@@ -8,6 +8,10 @@
 #   vpc      - ec2:DescribeSubnets
 #   dynamodb - dynamodb:ListTables, dynamodb:DescribeTable
 #   rds      - rds:DescribeDBInstances, logs:GetLogEvents
+#
+# config.enabled is accepted for compatibility; spec.forProvider.isPaused is what
+# actually stops collection. See the Data integrations section of the README for the
+# cluster/secretRef rules, adoption of an existing integration, and the config schema.
 apiVersion: integrations.groundcover.com/v1alpha1
 kind: DataIntegration
 metadata:
