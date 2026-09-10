@@ -28,7 +28,10 @@ reuses the same drift handling — you just drive it the GitOps/Crossplane way.
 Runnable manifests live in [`examples/`](./examples). Apply them in order:
 
 ```bash
-# 1. Install the provider (registers the Monitor/Dashboard/ConnectedAppJson/DataIntegration/NotificationRoute CRDs)
+# 1. Install the provider (registers every groundcover CRD: Monitor, Dashboard,
+#    ConnectedAppJson, DataIntegration, NotificationRoute, Secret, Policy, APIKey,
+#    IngestionKey, ServiceAccount, Skill, SyntheticTest, RecurringSilence, the
+#    Logs/Metrics/Traces pipelines, MetricsAggregation and StorageManagementPolicy)
 kubectl apply -f examples/provider.yaml
 kubectl wait provider/provider-groundcover --for=condition=Healthy --timeout=2m
 
@@ -51,7 +54,8 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 | Monitor | [`examples/monitor.yaml`](./examples/monitor.yaml) | typed v2 fields (title, severity, query, threshold, …); `kubectl explain monitor.spec.forProvider` |
 | Dashboard | [`examples/dashboard.yaml`](./examples/dashboard.yaml) | `kubectl explain dashboard.spec.forProvider` for the schema |
 | ConnectedAppJson | [`examples/connectedappjson.yaml`](./examples/connectedappjson.yaml) | sensitive `data` supplied via a Secret reference |
-| DataIntegration | [`AWS`](./examples/dataintegration-aws.yaml), [`PostgreSQL DB monitoring`](./examples/dataintegration-postgresql.yaml), [`ClickHouse DB monitoring`](./examples/dataintegration-clickhouse.yaml) | AWS capability blocks and database health/query-statistics collection |
+| DataIntegration | [`AWS`](./examples/dataintegration-aws.yaml), [`PostgreSQL DB monitoring`](./examples/dataintegration-postgresql.yaml), [`ClickHouse DB monitoring`](./examples/dataintegration-clickhouse.yaml) | AWS capability blocks and database health/query-statistics collection; see [Data integrations](#data-integrations) |
+| Secret | — | `secrets.groundcover.com` `kind: Secret`, not a core Kubernetes Secret. Produces the `secretRef::store::<id>` references used inside a DataIntegration `config` |
 | NotificationRoute | [`examples/notificationroute.yaml`](./examples/notificationroute.yaml) | routes issues to connected apps by status; references a connected-app id |
 | Install / config | [`examples/provider.yaml`](./examples/provider.yaml), [`examples/providerconfig.yaml`](./examples/providerconfig.yaml) | |
 
@@ -65,27 +69,108 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 | `groundcover_monitor_v2` (typed) | `kind: Monitor` (typed `spec.forProvider`) |
 | `groundcover_dashboard` | `kind: Dashboard` |
 | `groundcover_connected_app` (`data = { ... }`) | `kind: ConnectedAppJson` (`data` as JSON, via `dataSecretRef`) |
-| `groundcover_dataintegration` | `kind: DataIntegration` (`config` as JSON string) |
+| `groundcover_dataintegration` | `kind: DataIntegration` (`config` as JSON string) — see [Data integrations](#data-integrations) |
 | `groundcover_notification_route` | `kind: NotificationRoute` |
 | `groundcover_storage_management_policy` | `kind: StorageManagementPolicy` (adopts the seeded policy; delete only stops managing it) |
+| `groundcover_secret` | `kind: Secret` in `secrets.groundcover.com` |
 | `provider "groundcover" { api_key, backend_id }` | `ProviderConfig` + a credentials `Secret` |
 
 The connected-app `data` and data-integration `config` are JSON strings here
 (Crossplane/upjet can't represent the dynamic-object form Terraform uses). Everything
 else is the same shape.
 
-## AWS data integration
+## Data integrations
 
-The consolidated AWS integration uses `kind: DataIntegration` with `type: aws`; its
-`config` field is the same JSON shape Terraform passes through `jsonencode(...)`. See
-[`examples/dataintegration-aws.yaml`](./examples/dataintegration-aws.yaml) for a full
-manifest that enables the `vpc`, `dynamodb`, and `rds` capability blocks.
+`kind: DataIntegration` mirrors Terraform's `groundcover_dataintegration`:
+`spec.forProvider.type` picks the data source and `spec.forProvider.config` is the same JSON
+the Terraform provider produces with `jsonencode(...)`. The per-type `config` schema — the
+supported `type` values, the AWS capability blocks, the emitted metrics — is documented once,
+in the [Terraform resource reference][tf-dataintegration], and applies verbatim here: both
+providers post the same JSON to the same API.
 
-AWS account settings are integration-wide: put `regions`, `roleArn`, `stsRegion`, and
-`scrapeInterval` at the root of `config`, not inside a capability block. At least one
-capability block must be present and enabled, and empty objects such as `"vpc": {}` are
-treated as absent by the backend. To use different regions, accounts, roles, or scrape
-cadences per capability, create separate `DataIntegration` resources.
+Runnable manifests: [AWS](./examples/dataintegration-aws.yaml),
+[PostgreSQL](./examples/dataintegration-postgresql.yaml),
+[ClickHouse](./examples/dataintegration-clickhouse.yaml).
+
+[tf-dataintegration]: https://registry.terraform.io/providers/groundcover-com/groundcover/latest/docs/resources/dataintegration
+
+### Pausing
+
+`config.enabled` is accepted for compatibility, but it is not what stops collection — set
+`spec.forProvider.isPaused: true`. The examples set both; `isPaused` is the one this provider
+manages.
+
+### Where the integration runs, and secrets
+
+Without `spec.forProvider.cluster` the integration runs in the groundcover backend. Set it to
+one of your groundcover cluster names to run it from that cluster's integrations agent
+instead — needed when the target is only reachable from inside your network, and when
+`config` refers to a Kubernetes Secret.
+
+Credentials inside `config` are `secretRef` strings, never plaintext:
+
+| Form | Resolved against | Needs `cluster` |
+|---|---|---|
+| `secretRef::store::<id>` | the groundcover secret store. Create the secret with this provider's `kind: Secret` (group `secrets.groundcover.com` — not a core Kubernetes Secret) and use the id it reports | no |
+| `secretRef::k8s::<namespace>::<secret-name>::<key>` | a Kubernetes Secret in the cluster running the integration, read by the agent. Create that Secret yourself | **yes** |
+
+A `secretRef::k8s::` reference has no Kubernetes API to read from when the integration runs
+in the backend, which is why the two database examples set `cluster` next to it.
+
+### `type` and `cluster` are immutable
+
+Both force replacement in the underlying Terraform resource. Changing either deletes the
+integration and creates a new one under a **new external name** (a new id). Emitted metrics
+carry that id in `gc_integration_id`, so series from before and after do not join.
+
+### Adopting an existing integration
+
+To manage an integration that already exists in groundcover instead of creating a second one,
+set its id as the external name and give the matching `type`:
+
+```yaml
+apiVersion: integrations.groundcover.com/v1alpha1
+kind: DataIntegration
+metadata:
+  name: prod-aws
+  annotations:
+    crossplane.io/external-name: "8f14e45f-ceea-467a-9a1b-2c9b7e0d3f21" # the integration's id
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    type: aws
+    config: | # must match what is configured in groundcover, or the next reconcile updates it
+      { ... }
+```
+
+This is the Crossplane equivalent of
+`terraform import groundcover_dataintegration.example <type>:<id>`: the annotation carries the
+`<id>` half, `spec.forProvider.type` the `<type>` half.
+
+### AWS (`type: aws`)
+
+The consolidated AWS integration configures an account once and enables one or more capability
+blocks: `vpc`, `dynamodb`, `rds`. AWS account settings are integration-wide — put `regions`,
+`roleArn`, `stsRegion` and `scrapeInterval` at the root of `config`, never inside a capability
+block. To use different regions, accounts, roles or cadences per capability, create separate
+`DataIntegration` resources.
+
+The backend validates `config` and rejects it whole, so a bad manifest surfaces as
+`SYNCED=False` rather than a partly applied integration:
+
+- `version` must be `1`.
+- Unknown keys are rejected at **every** level, including inside a capability block — and
+  `regions`, `roleArn`, `stsRegion` or `scrapeInterval` inside a block is an unknown key.
+- `regions` and `scrapeInterval` are required at the root. `scrapeInterval` has an inclusive
+  `1m` minimum.
+- At least one capability block must be present **and** enabled. An empty object such as
+  `"vpc": {}` counts as absent, so always set at least one field inside a block.
+
+Required IAM permissions: `vpc` needs `ec2:DescribeSubnets`; `dynamodb` needs
+`dynamodb:ListTables` and `dynamodb:DescribeTable`; `rds` needs `rds:DescribeDBInstances` plus
+`logs:GetLogEvents` on the `RDSOSMetrics` log group for Enhanced Monitoring. The
+[Terraform reference][tf-dataintegration] lists the metrics and labels each capability emits.
 
 ## How drift is handled
 

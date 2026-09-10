@@ -14,6 +14,10 @@
 # so its password can use an existing Kubernetes Secret. Replace the cluster, namespace,
 # Secret name, and key as needed. For a backend-run integration, omit cluster and use a
 # secretRef::store::<id> password instead.
+#
+# config.enabled is accepted for compatibility; spec.forProvider.isPaused is what
+# actually stops collection. See the Data integrations section of the README for the
+# cluster/secretRef rules, adoption of an existing integration, and the config schema.
 apiVersion: integrations.groundcover.com/v1alpha1
 kind: DataIntegration
 metadata:
