@@ -58,5 +58,7 @@ spec:
         - Resolved
       renotificationInterval: 4h
       disableRenotification: false
+      # Omit the preview graph from notifications (only Slack shows one today). Defaults to false.
+      hidePreviewGraph: true
     executionErrorState: OK
     noDataState: OK
