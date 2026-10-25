@@ -12,6 +12,8 @@ spec:
     name: example-http-check
     interval: 1m
     enabled: true
+    # Omit or set true to get the bundled monitor; false creates the test without one.
+    createMonitor: false
     httpCheck:
       url: https://example.com
       method: GET
