@@ -1,0 +1,32 @@
+# MySQL reader with statement measurements and health metrics.
+# Set cluster to the groundcover cluster containing the MySQL service and password Secret.
+# This demo instance runs without TLS. For monitoring-account and TLS setup, see
+# https://docs.groundcover.com/collect-data/data-sources/mysql-database-monitoring
+apiVersion: integrations.groundcover.com/v1alpha1
+kind: DataIntegration
+metadata:
+  name: mysql-reader
+spec:
+  providerConfigRef:
+    name: default
+  forProvider:
+    type: mysqldbm
+    cluster: demo-cluster
+    isPaused: false
+    config: |
+      {
+        "version": 1,
+        "enabled": true,
+        "name": "mysql-reader",
+        "host": "mysql-replica.demo-ng.svc.cluster.local",
+        "secure": false,
+        "interval": "1m",
+        "statements": {"enabled": true},
+        "healthMetrics": {"enabled": true},
+        "authentication": {
+          "basicAuth": {
+            "username": "demo_reader",
+            "password": "secretRef::k8s::demo-ng::mysql-reader-integration::password"
+          }
+        }
+      }

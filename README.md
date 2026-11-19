@@ -54,7 +54,7 @@ Edit a manifest and re-apply to update; `kubectl delete` removes the resource fr
 | Monitor | [`examples/monitor.yaml`](./examples/monitor.yaml) | typed v2 fields (title, severity, query, threshold, …); `kubectl explain monitor.spec.forProvider` |
 | Dashboard | [`examples/dashboard.yaml`](./examples/dashboard.yaml) | `kubectl explain dashboard.spec.forProvider` for the schema |
 | ConnectedAppJson | [`examples/connectedappjson.yaml`](./examples/connectedappjson.yaml) | sensitive `data` supplied via a Secret reference |
-| DataIntegration | [`AWS`](./examples/dataintegration-aws.yaml), [`PostgreSQL DB monitoring`](./examples/dataintegration-postgresql.yaml), [`ClickHouse DB monitoring`](./examples/dataintegration-clickhouse.yaml) | AWS capability blocks and database health/query-statistics collection; see [Data integrations](#data-integrations) |
+| DataIntegration | [`AWS`](./examples/dataintegration-aws.yaml), [`PostgreSQL DB monitoring`](./examples/dataintegration-postgresql.yaml), [`MySQL DB monitoring`](./examples/dataintegration-mysql.yaml), [`ClickHouse DB monitoring`](./examples/dataintegration-clickhouse.yaml) | AWS capability blocks and database health/query-statistics collection; see [Data integrations](#data-integrations) |
 | Secret | [`examples/secret.yaml`](./examples/secret.yaml) | `secrets.groundcover.com` `kind: Secret`, not a core Kubernetes Secret. Produces the `secretRef::store::<id>` references used inside a DataIntegration `config` |
 | NotificationRoute | [`examples/notificationroute.yaml`](./examples/notificationroute.yaml) | routes issues to connected apps by status; references a connected-app id |
 | Install / config | [`examples/provider.yaml`](./examples/provider.yaml), [`examples/providerconfig.yaml`](./examples/providerconfig.yaml) | |
@@ -90,6 +90,7 @@ providers post the same JSON to the same API.
 
 Runnable manifests: [AWS](./examples/dataintegration-aws.yaml),
 [PostgreSQL](./examples/dataintegration-postgresql.yaml),
+[MySQL](./examples/dataintegration-mysql.yaml),
 [ClickHouse](./examples/dataintegration-clickhouse.yaml).
 
 [tf-dataintegration]: https://registry.terraform.io/providers/groundcover-com/groundcover/latest/docs/resources/dataintegration
